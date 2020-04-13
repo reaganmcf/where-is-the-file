@@ -20,8 +20,7 @@ int main(int argc, char **argv)
     //First, we need to check the params and flags
     if (argc == 1)
     {
-        wtf_perror(E_IMPROPER_PARAMS_AND_FLAGS);
-        exit(errordesc[E_IMPROPER_PARAMS_AND_FLAGS].code);
+        wtf_perror(E_IMPROPER_PARAMS_AND_FLAGS, 1);
     }
 
     //Now, lets check send the command to the proper function
@@ -30,13 +29,11 @@ int main(int argc, char **argv)
         //Check for params
         if (argc != 4)
         {
-            wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS);
-            exit(errordesc[E_IMPROPER_CONFIGURATION_PARAMS].code);
+            wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, 1);
         }
         else if (strlen(argv[2]) == 0 || strlen(argv[3]) == 0)
         {
-            wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS);
-            exit(errordesc[E_IMPROPER_CONFIGURATION_PARAMS].code);
+            wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, 1);
         }
 
         int result = wtf_configure_host(argv[2], argv[3]);
@@ -47,8 +44,7 @@ int main(int argc, char **argv)
         }
         else
         {
-            wtf_perror(E_CONFIGURATION_WRITE_ERROR);
-            exit(errordesc[E_CONFIGURATION_WRITE_ERROR].code);
+            wtf_perror(E_CONFIGURATION_WRITE_ERROR, 1);
         }
     }
     return 0;
@@ -107,10 +103,17 @@ int wtf_configure_host(char *hostname, char *port)
  * Custom perror for our custom wtf_error
  * 
  * Prints out the error code and error description
+ * 
+ * If should_exit is 1 then also send exit() command
  */
-void wtf_perror(wtf_error e)
+void wtf_perror(wtf_error e, int should_exit)
 {
     printf("\033[0;31m");
     printf("[ Error Code %d ] %s\n", errordesc[e].code, errordesc[e].message);
     printf("\033[0m");
+
+    if (should_exit == 1)
+    {
+        exit(errordesc[e].code);
+    }
 }

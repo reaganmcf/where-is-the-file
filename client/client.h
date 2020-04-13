@@ -27,7 +27,7 @@ struct _error_desc
     {E_IMPROPER_CONFIGURATION_PARAMS, "Improper params for configure command. Please follow the format of ./WTF configure <IP/hostname> <port>"}};
 
 //Function Prototype for printing custom errors
-void wtf_perror(wtf_error e);
+void wtf_perror(wtf_error e, int should_exit);
 
 //Function Prototype for configuring connection to server
 int configure_host(char *hostname, char* port);
