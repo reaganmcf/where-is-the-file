@@ -24,6 +24,33 @@ int main(int argc, char **argv)
         exit(errordesc[E_IMPROPER_PARAMS_AND_FLAGS].code);
     }
 
+    //Now, lets check send the command to the proper function
+    if (strcmp(argv[1], "configure") == 0)
+    {
+        //Check for params
+        if (argc != 4)
+        {
+            wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS);
+            exit(errordesc[E_IMPROPER_CONFIGURATION_PARAMS].code);
+        }
+        else if (strlen(argv[2]) == 0 || strlen(argv[3]) == 0)
+        {
+            wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS);
+            exit(errordesc[E_IMPROPER_CONFIGURATION_PARAMS].code);
+        }
+
+        int result = wtf_configure_host(argv[2], argv[3]);
+        if (result == 1)
+        {
+            printf("Succesfully configured client.\n");
+            return 0;
+        }
+        else
+        {
+            wtf_perror(E_CONFIGURATION_WRITE_ERROR);
+            exit(errordesc[E_CONFIGURATION_WRITE_ERROR].code);
+        }
+    }
     return 0;
 }
 
@@ -53,7 +80,7 @@ int wtf_connect()
  *  0 = failure
  *  1 = success
  */
-int wtf_configure_host(char *hostname, int port)
+int wtf_configure_host(char *hostname, char *port)
 {
     /**
      * The .configure format is the following, example of my.server.com with port 2503
@@ -67,12 +94,13 @@ int wtf_configure_host(char *hostname, int port)
     {
         remove("./.configure");
     }
-    int fd = open("./.configure", O_WRONLY | O_CREAT | O_APPEND, S_IRUSR, S_IWUSR);
-    char *tStr = "";
+    int fd = open("./.configure", O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    char *tStr = malloc(500);
     sprintf(tStr, "hostname:%s|port:%s", hostname, port);
-    printf("Writing %s to .configuration\n", tStr);
-    // write(fd, )
-    return 0;
+    int num_bytes = write(fd, tStr, strlen(tStr));
+    if (num_bytes == -1)
+        return 0;
+    return 1;
 }
 
 /**
