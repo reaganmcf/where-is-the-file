@@ -1,12 +1,13 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include "client.h"
+
+#include <dirent.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 /** WTF Client
  * 
@@ -14,36 +15,26 @@
  * sub function from main to abstract out the code and make it more readable
  */
 
-int main(int argc, char **argv)
-{
-
+int main(int argc, char **argv) {
     //First, we need to check the params and flags
-    if (argc == 1)
-    {
+    if (argc == 1) {
         wtf_perror(E_IMPROPER_PARAMS_AND_FLAGS, 1);
     }
 
     //Now, lets check send the command to the proper function
-    if (strcmp(argv[1], "configure") == 0)
-    {
+    if (strcmp(argv[1], "configure") == 0) {
         //Check for params
-        if (argc != 4)
-        {
+        if (argc != 4) {
             wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, 1);
-        }
-        else if (strlen(argv[2]) == 0 || strlen(argv[3]) == 0)
-        {
+        } else if (strlen(argv[2]) == 0 || strlen(argv[3]) == 0) {
             wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, 1);
         }
 
         int result = wtf_configure_host(argv[2], argv[3]);
-        if (result == 1)
-        {
+        if (result == 1) {
             printf("Succesfully configured client.\n");
             return 0;
-        }
-        else
-        {
+        } else {
             wtf_perror(E_CONFIGURATION_WRITE_ERROR, 1);
         }
     }
@@ -59,9 +50,7 @@ int main(int argc, char **argv)
  *  0 = failure
  *  1 = success
  */
-int wtf_connect()
-{
-
+int wtf_connect() {
     return 0;
 }
 
@@ -76,18 +65,16 @@ int wtf_connect()
  *  0 = failure
  *  1 = success
  */
-int wtf_configure_host(char *hostname, char *port)
-{
+int wtf_configure_host(char *hostname, char *port) {
     /**
-     * The .configure format is the following, example of my.server.com with port 2503
+     * The .configure format is the following  example of my.server.com with port 2503
      * 
      * hostname:my.server.com|port:2503
      * 
      */
 
     //if .configure already exists, delete it and lets create a new one (to override)
-    if (access("./.configure", F_OK) != -1)
-    {
+    if (access("./.configure", F_OK) != -1) {
         remove("./.configure");
     }
     int fd = open("./.configure", O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
@@ -106,14 +93,12 @@ int wtf_configure_host(char *hostname, char *port)
  * 
  * If should_exit is 1 then also send exit() command
  */
-void wtf_perror(wtf_error e, int should_exit)
-{
+void wtf_perror(wtf_error e, int should_exit) {
     printf("\033[0;31m");
     printf("[ Error Code %d ] %s\n", errordesc[e].code, errordesc[e].message);
     printf("\033[0m");
 
-    if (should_exit == 1)
-    {
+    if (should_exit == 1) {
         exit(errordesc[e].code);
     }
 }
