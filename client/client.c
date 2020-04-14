@@ -63,21 +63,35 @@ int wtf_connect() {
     char *buffer = malloc(200);
     int fd = open(WTF_CONFIGURATION_FILE_PATH, O_RDONLY);
     if (fd == -1) {
-      printf("fd = %d\n", fd);
       wtf_perror(E_INVALID_CONFIGURATION, 1);
     }
     int num_bytes = 0;
-    num_bytes = read(fd, buffer, 500);
-    printf("read %d bytes from .configuration\n", num_bytes);
+    num_bytes = read(fd, buffer, 200);
+    // printf("read %d bytes from .configuration\n", num_bytes);
     if (num_bytes <= 0) {
       wtf_perror(E_INVALID_CONFIGURATION, 1);
     }
 
-    //Go over each char in the buffer and pull out hostname and port
+    //Load the configuration file's contents into 2 variables, port_buffer and hostname_buffer
     configuration = malloc(sizeof(wtf_configuration));
-    int i;
+    char *port_buffer = strstr(buffer, "\n");  //this now stores \n<port>
     char *hostname_buffer = malloc(100);
-    char *port_buffer = malloc(100);
+    strncpy(hostname_buffer, buffer, port_buffer - buffer);  //load the first substring into hostname_buffer
+    port_buffer++;                                           //trim off \n
+
+    configuration->hostname = (char *)malloc(strlen(hostname_buffer));
+    strncpy(configuration->hostname, hostname_buffer, strlen(hostname_buffer));
+    configuration->port = atoi(port_buffer);
+    // strncpy(configuration->port, port_buffer, strlen(port_buffer));
+
+    //free
+    close(fd);
+    free(buffer);
+    free(hostname_buffer);
+
+    printf("Configuration loaded into global: {hostname: '%s', port: %d}\n", configuration->hostname, configuration->port);
+    free(configuration->hostname);
+    free(configuration);
   }
   return 0;
 }
@@ -97,7 +111,8 @@ int wtf_configure_host(char *hostname, char *port) {
   /**
      * The .configure format is the following  example of my.server.com with port 2503
      * 
-     * hostname:my.server.com|port:2503
+     * myserver.com
+     * 4433
      * 
      */
 
@@ -107,7 +122,7 @@ int wtf_configure_host(char *hostname, char *port) {
   }
   int fd = open(WTF_CONFIGURATION_FILE_PATH, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
   char *tStr = malloc(500);
-  sprintf(tStr, "hostname:%s|port:%s", hostname, port);
+  sprintf(tStr, "%s\n%s", hostname, port);
   int num_bytes = write(fd, tStr, strlen(tStr));
   close(fd);
   if (num_bytes == -1)
