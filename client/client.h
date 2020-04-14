@@ -34,10 +34,15 @@ typedef struct _configuration {
   int port;
 } wtf_configuration;
 
+//Function Prototype for freeing all memory after exit
+static void wtf_exit_handler(void);
+
+//Function Prototype to handle attemtping connection and returning the socket FD
+
 //Function Prototype for printing custom errors
 void wtf_perror(wtf_error e, int should_exit);
 
-//Function Prototype for configuring connection to server
-int configure_host(char *hostname, char *port);
+//Function Prototype for writing out .configuration
+int wtf_configure_host(char *hostname, char *port);
 
 #endif

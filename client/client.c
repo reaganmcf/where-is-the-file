@@ -18,9 +18,10 @@
 
 //Global Declarations
 int socket = -1;
-wtf_configuration *configuration;
+wtf_configuration *CONFIGURATION;
 
 int main(int argc, char **argv) {
+  atexit(wtf_exit_handler);
   //First, we need to check the params and flags
   if (argc == 1) {
     wtf_perror(E_IMPROPER_PARAMS_AND_FLAGS, 1);
@@ -48,10 +49,21 @@ int main(int argc, char **argv) {
   return 0;
 }
 
+static void wtf_exit_handler(void) {
+  printf("Handling exit safely. Freeing alloc'd memory...\n");
+  if (CONFIGURATION != NULL) {
+    free(CONFIGURATION->hostname);
+    free(CONFIGURATION);
+  }
+  printf("Successfully handled exit.\n");
+}
+
 /**
  * Connect to server
  * 
- * Checks if there is a .configuration file, if so, then attempts to connect to the server
+ * Checks if the global CONFIGURATION struct has been populated, if it has not, then loads the contents into the global
+ * 
+ * After this, it attempts to connect to the server based on the hostname:port given in the .configuration file
  * 
  * Returns:
  *  0 = failure
@@ -59,7 +71,7 @@ int main(int argc, char **argv) {
  */
 int wtf_connect() {
   //If configuration is not created, we need to read in the configuration file and load it into the struct
-  if (configuration == NULL) {
+  if (CONFIGURATION == NULL) {
     char *buffer = malloc(200);
     int fd = open(WTF_CONFIGURATION_FILE_PATH, O_RDONLY);
     if (fd == -1) {
@@ -73,26 +85,25 @@ int wtf_connect() {
     }
 
     //Load the configuration file's contents into 2 variables, port_buffer and hostname_buffer
-    configuration = malloc(sizeof(wtf_configuration));
+    CONFIGURATION = malloc(sizeof(wtf_configuration));
     char *port_buffer = strstr(buffer, "\n");  //this now stores \n<port>
     char *hostname_buffer = malloc(100);
     strncpy(hostname_buffer, buffer, port_buffer - buffer);  //load the first substring into hostname_buffer
     port_buffer++;                                           //trim off \n
 
-    configuration->hostname = (char *)malloc(strlen(hostname_buffer));
-    strncpy(configuration->hostname, hostname_buffer, strlen(hostname_buffer));
-    configuration->port = atoi(port_buffer);
-    // strncpy(configuration->port, port_buffer, strlen(port_buffer));
+    CONFIGURATION->hostname = (char *)malloc(strlen(hostname_buffer));
+    strncpy(CONFIGURATION->hostname, hostname_buffer, strlen(hostname_buffer));
+    CONFIGURATION->port = atoi(port_buffer);
 
     //free
     close(fd);
     free(buffer);
     free(hostname_buffer);
 
-    printf("Configuration loaded into global: {hostname: '%s', port: %d}\n", configuration->hostname, configuration->port);
-    free(configuration->hostname);
-    free(configuration);
+    printf("Configuration loaded into global: {hostname: '%s', port: %d}\n", CONFIGURATION->hostname, CONFIGURATION->port);
   }
+
+  printf("Attempting to connect to %s:%d\n", CONFIGURATION->hostname, CONFIGURATION->port);
   return 0;
 }
 
@@ -124,7 +135,11 @@ int wtf_configure_host(char *hostname, char *port) {
   char *tStr = malloc(500);
   sprintf(tStr, "%s\n%s", hostname, port);
   int num_bytes = write(fd, tStr, strlen(tStr));
+
+  //free memory
   close(fd);
+  free(tStr);
+
   if (num_bytes == -1)
     return 0;
   return 1;
