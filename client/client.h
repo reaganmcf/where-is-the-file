@@ -1,3 +1,7 @@
+#include <netdb.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <sys/socket.h>
 
 #ifndef CLIENT_H
 #define CLIENT_H
@@ -10,7 +14,10 @@ enum _error_codes {
   E_CONFIGURATION_WRITE_ERROR = 2,
   E_SERVER_NOT_FOUND = 3,
   E_IMPROPER_PARAMS_AND_FLAGS = 4,
-  E_IMPROPER_CONFIGURATION_PARAMS = 5
+  E_IMPROPER_CONFIGURATION_PARAMS = 5,
+  E_CANNOT_CREATE_SOCKET = 6,
+  E_UNKNOWN_HOST = 7,
+  E_CANNOT_CONNECT_TO_HOST = 8
 };
 
 typedef enum _error_codes wtf_error;
@@ -25,8 +32,20 @@ struct _error_desc {
     {E_SERVER_NOT_FOUND, "Failed to connect to the server provided in the .configuration file"},
     {E_IMPROPER_PARAMS_AND_FLAGS, "Improper params and flags. Please make sure to enter a valid command with all required params"},
     {E_IMPROPER_CONFIGURATION_PARAMS, "Improper params for configure command. Please follow the format of ./WTF configure <IP/hostname> <port>"},
+    {E_CANNOT_CREATE_SOCKET, "Failed to create socket.\n"},
+    {E_UNKNOWN_HOST, "Unknwon host provided\n"},
+    {E_CANNOT_CONNECT_TO_HOST, "Failed to connect to the host and port provided"}
 
 };
+
+//Struct for a wtf_connection
+typedef struct _wtf_connection {
+  int socket;
+  struct sockaddr_in address;
+  struct hostent *host;
+  int port;
+  int len;
+} wtf_connection;
 
 //Struct for .configuration
 typedef struct _configuration {
@@ -37,7 +56,8 @@ typedef struct _configuration {
 //Function Prototype for freeing all memory after exit
 static void wtf_exit_handler(void);
 
-//Function Prototype to handle attemtping connection and returning the socket FD
+//Function Prototype to handle attemtping connection and returning a valid wtf_connection struct
+wtf_connection *wtf_connect();
 
 //Function Prototype for printing custom errors
 void wtf_perror(wtf_error e, int should_exit);

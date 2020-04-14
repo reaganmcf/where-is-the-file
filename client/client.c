@@ -1,8 +1,6 @@
 #include "client.h"
 
-#include <dirent.h>
 #include <fcntl.h>
-#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +15,6 @@
  */
 
 //Global Declarations
-int socket = -1;
 wtf_configuration *CONFIGURATION;
 
 int main(int argc, char **argv) {
@@ -45,7 +42,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  int s = wtf_connect();
+  wtf_connection *connection = wtf_connect();
+  char *testString = "hello gamers";
+  write(connection->socket, &testString, sizeof(int));
+  write(connection->socket, testString, strlen(testString));
   return 0;
 }
 
@@ -66,10 +66,10 @@ static void wtf_exit_handler(void) {
  * After this, it attempts to connect to the server based on the hostname:port given in the .configuration file
  * 
  * Returns:
- *  0 = failure
- *  1 = success
+ *  wtf_connection* = success
+ *  Failure will throw an exit-provoking wtf_error, so you can expect return to be valid 
  */
-int wtf_connect() {
+wtf_connection *wtf_connect() {
   //If configuration is not created, we need to read in the configuration file and load it into the struct
   if (CONFIGURATION == NULL) {
     char *buffer = malloc(200);
@@ -104,7 +104,26 @@ int wtf_connect() {
   }
 
   printf("Attempting to connect to %s:%d\n", CONFIGURATION->hostname, CONFIGURATION->port);
-  return 0;
+
+  wtf_connection *connection = malloc(sizeof(wtf_connection));
+  connection->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (socket <= 0) {
+    wtf_perror(E_CANNOT_CREATE_SOCKET, 1);
+  }
+  connection->address.sin_family = AF_INET;
+  connection->address.sin_port = htons(CONFIGURATION->port);
+  connection->host = gethostbyname(CONFIGURATION->hostname);
+  if (connection->host == NULL) {
+    wtf_perror(E_UNKNOWN_HOST, 1);
+  }
+  memcpy(&connection->address.sin_addr, connection->host->h_addr_list[0], connection->host->h_length);
+
+  if (connect(connection->socket, (struct sockaddr *)&connection->address, sizeof(connection->address))) {
+    wtf_perror(E_CANNOT_CONNECT_TO_HOST, 1);
+  }
+
+  //Socket is connected and everything, return it.
+  return connection;
 }
 
 /**

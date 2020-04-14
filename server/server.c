@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
   //Now, let's do some setup and start the server
   int sock = -1;
   struct sockaddr_in address;
-  int port = argv[1];
+  int port = atoi(argv[1]);
   wtf_connection *connection;
   pthread_t thread;
 
@@ -71,7 +71,7 @@ void *wtf_process(void *pointer) {
   char *buffer;
   int len;
   wtf_connection *connection;
-  int addr = 0;
+  long addr = 0;
 
   if (!pointer) {
     pthread_exit(0);
@@ -81,7 +81,7 @@ void *wtf_process(void *pointer) {
   /* Read length of message */
   read(connection->socket, &len, sizeof(int));
   if (len > 0) {
-    addr = ((struct sockaddr_in *)&connection->address)->sin_addr.s_addr;
+    addr = (long)((struct sockaddr_in *)&connection->address)->sin_addr.s_addr;
     buffer = malloc((len + 1) * sizeof(char));
     buffer[len] = 0;
     read(connection->socket, buffer, len);
