@@ -1,4 +1,7 @@
 all: compile
 
 compile:
-	gcc client.c -o WTFServer
+	gcc -lpthread server.c -o WTFServer
+
+clean:
+	rm ./WTFServer
