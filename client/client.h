@@ -9,7 +9,8 @@
 #define WTF_CONFIGURATION_FILE_PATH "./.configuration"
 
 //Possible Error Codes for the Client
-enum _error_codes {
+enum _error_codes
+{
   E_INVALID_CONFIGURATION = 1,
   E_CONFIGURATION_WRITE_ERROR = 2,
   E_SERVER_NOT_FOUND = 3,
@@ -17,12 +18,18 @@ enum _error_codes {
   E_IMPROPER_CONFIGURATION_PARAMS = 5,
   E_CANNOT_CREATE_SOCKET = 6,
   E_UNKNOWN_HOST = 7,
-  E_CANNOT_CONNECT_TO_HOST = 8
+  E_CANNOT_CONNECT_TO_HOST = 8,
+  E_IMPROPER_CREATE_PARAMS = 9,
+  E_IMPROPER_CREATE_PROJECT_NAME_LENGTH = 10,
+  E_IMPROPER_CREATE_PROJECT_NAME = 11,
+  E_SERVER_MANIFEST_ALREADY_EXISTS = 12,
+  E_SERVER_IMPROPER_PERMISSIONS = 13
 };
 
 typedef enum _error_codes wtf_error;
 
-struct _error_desc {
+struct _error_desc
+{
   int code;
   char *message;
 } errordesc[] = {
@@ -34,12 +41,16 @@ struct _error_desc {
     {E_IMPROPER_CONFIGURATION_PARAMS, "Improper params for configure command. Please follow the format of ./WTF configure <IP/hostname> <port>"},
     {E_CANNOT_CREATE_SOCKET, "Failed to create socket.\n"},
     {E_UNKNOWN_HOST, "Unknwon host provided\n"},
-    {E_CANNOT_CONNECT_TO_HOST, "Failed to connect to the host and port provided"}
-
-};
+    {E_CANNOT_CONNECT_TO_HOST, "Failed to connect to the host and port provided"},
+    {E_IMPROPER_CREATE_PARAMS, "Imporper params for create command. Please follow the format of ./WTF create <project-name>"},
+    {E_IMPROPER_CREATE_PROJECT_NAME_LENGTH, "Improper project name for create command. Please ensure your project name length is between 1 and 100 characters long"},
+    {E_IMPROPER_CREATE_PROJECT_NAME, "Improper project name for create command. Please make sure the project name provided does not contain ':'."},
+    {E_SERVER_MANIFEST_ALREADY_EXISTS, "Please create a project name that is unique."},
+    {E_SERVER_IMPROPER_PERMISSIONS, "The server could not read and/or write to the Manifests directory. Please make sure the server is correctly configured."}};
 
 //Struct for a wtf_connection
-typedef struct _wtf_connection {
+typedef struct _wtf_connection
+{
   int socket;
   struct sockaddr_in address;
   struct hostent *host;
@@ -48,7 +59,8 @@ typedef struct _wtf_connection {
 } wtf_connection;
 
 //Struct for .configuration
-typedef struct _configuration {
+typedef struct _configuration
+{
   char *hostname;
   int port;
 } wtf_configuration;
