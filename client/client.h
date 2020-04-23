@@ -23,7 +23,8 @@ enum _error_codes
   E_IMPROPER_CREATE_PROJECT_NAME_LENGTH = 10,
   E_IMPROPER_CREATE_PROJECT_NAME = 11,
   E_SERVER_MANIFEST_ALREADY_EXISTS = 12,
-  E_SERVER_IMPROPER_PERMISSIONS = 13
+  E_SERVER_IMPROPER_PERMISSIONS = 13,
+  E_CANNOT_WRITE_TO_MANIFEST = 14
 };
 
 typedef enum _error_codes wtf_error;
@@ -46,7 +47,10 @@ struct _error_desc
     {E_IMPROPER_CREATE_PROJECT_NAME_LENGTH, "Improper project name for create command. Please ensure your project name length is between 1 and 100 characters long"},
     {E_IMPROPER_CREATE_PROJECT_NAME, "Improper project name for create command. Please make sure the project name provided does not contain ':'."},
     {E_SERVER_MANIFEST_ALREADY_EXISTS, "Please create a project name that is unique."},
-    {E_SERVER_IMPROPER_PERMISSIONS, "The server could not read and/or write to the Manifests directory. Please make sure the server is correctly configured."}};
+    {E_SERVER_IMPROPER_PERMISSIONS, "The server could not read and/or write to the Manifests directory. Please make sure the server is correctly configured."},
+    {E_CANNOT_WRITE_TO_MANIFEST, "Improper permissions to write .Manifest."}
+
+};
 
 //Struct for a wtf_connection
 typedef struct _wtf_connection

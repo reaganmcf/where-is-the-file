@@ -108,7 +108,7 @@ void *wtf_process(void *pointer)
   buffer++;
   char *command = malloc(command_size + 1);
   command = strncpy(command, buffer, command_size);
-  printf("\t command = %s\n", command);
+  printf("\tcommand = %s\n", command);
   //advance buffer to char after next ':'
   while (buffer[0] != ':')
     buffer++;
@@ -129,7 +129,7 @@ void *wtf_process(void *pointer)
     int status = wtf_server_create_project(project_name);
     char *ret_buffer = malloc(4);
     sprintf(ret_buffer, "%d", (status + 1) + 100);
-    printf("Sending back {%s} to the client\n", ret_buffer);
+    printf("\tSending back {%s} to the client\n", ret_buffer);
     write(connection->socket, ret_buffer, 5);
   }
 
@@ -201,7 +201,7 @@ int wtf_server_create_project(char *project_name)
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
-  printf("Successfully created .Manifest file for %s\n", project_name);
+  printf("\tSuccessfully created .Manifest file for %s\n", project_name);
   return 0;
 }
 
@@ -215,7 +215,7 @@ int wtf_server_create_project(char *project_name)
 void wtf_perror(wtf_error e, int should_exit)
 {
   printf("\033[0;31m");
-  printf("[ Error Code %d ] %s\n", errordesc[e].code, errordesc[e].message);
+  printf("\t[ Error Code %d ] %s\n", errordesc[e].code, errordesc[e].message);
   printf("\033[0m");
 
   if (should_exit == 1)

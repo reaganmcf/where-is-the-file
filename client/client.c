@@ -131,6 +131,22 @@ int wtf_create_project(char *project_name)
   if (ret_status == 101)
   {
     printf("Successfully created Project Manifest on server.\n");
+
+    //Now we need to create the manifest on the client side
+    int fd = open(".Manifest", O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
+    if (fd == -1)
+    {
+      wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
+    }
+    write(fd, project_name, strlen(project_name));
+    n = write(fd, "\n1.0", 4);
+    if (n < 1)
+    {
+      wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
+    }
+
+    close(fd);
+    printf("Successfully created .Manifest\n");
   }
   else
   {
