@@ -53,4 +53,7 @@ int wtf_server_create_project(char *);
 //Function Prototype for printing custom errors
 void wtf_perror(wtf_error e, int should_exit);
 
+//Function Prototype for checking if path is a regular file
+int isRegFile(const char *path);
+
 #endif

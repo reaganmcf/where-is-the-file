@@ -146,23 +146,26 @@ void *wtf_process(void *pointer)
  * 
  * Handler for create-project directive
  * 
- * Should check if the project name already exists in Manifests/, and if it doesn't then create the manifest and send back the status code
+ * Should check if the project name already exists in Projects/, and if it doesn't then create the manifest and send back the status code
  * 
  * Returns 0 if successful, and an E_ERROR_CODE enum otherwise
  */
 int wtf_server_create_project(char *project_name)
 {
-  //First we need to loop over the directory ./Manifests/ and check if any of the file names already exist
+  //First we need to loop over the directory ./Projects/ and check if any of the file names already exist
   DIR *d;
   struct dirent *dir;
-  d = opendir("./Manifests/");
+  d = opendir("./Projects/");
   int name_exists = 0;
   if (d)
   {
     while ((dir = readdir(d)) != NULL)
     {
-      if (strcmp(dir->d_name, project_name) == 0)
-        name_exists = 1;
+      if (!isRegFile(dir->d_name))
+      {
+        if (strcmp(dir->d_name, project_name) == 0)
+          name_exists = 1;
+      }
       // printf("%s\n", dir->d_name);
     }
     closedir(d);
@@ -180,8 +183,11 @@ int wtf_server_create_project(char *project_name)
   }
 
   //Ready to write project manifest to file here
+  //First we need to create the directory
   char *path = malloc(sizeof(100));
-  sprintf(path, "./Manifests/%s", project_name);
+  sprintf(path, "./Projects/%s", project_name);
+  mkdir(path, 0700);
+  sprintf(path, "./Projects/%s/.Manifest", project_name);
   int fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
   if (fd == -1)
   {
@@ -222,4 +228,16 @@ void wtf_perror(wtf_error e, int should_exit)
   {
     exit(errordesc[e].code);
   }
+}
+
+int isRegFile(const char *path)
+{
+  struct stat statbuf;
+
+  if (stat(path, &statbuf) != 0)
+  {
+    return 0;
+  }
+
+  return S_ISREG(statbuf.st_mode);
 }
