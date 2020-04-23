@@ -132,8 +132,14 @@ int wtf_create_project(char *project_name)
   {
     printf("Successfully created Project Manifest on server.\n");
 
-    //Now we need to create the manifest on the client side
-    int fd = open(".Manifest", O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
+    //Now we need to create the project on the client side (including .Manifest);
+    mkdir(project_name, 0700);
+    char *path = malloc(100);
+    sprintf(path, "./%s/.Manifest", project_name);
+    if (access(path, F_OK) != -1)
+      remove(path);
+    int fd = open(path, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
+    free(path);
     if (fd == -1)
     {
       wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
@@ -146,7 +152,7 @@ int wtf_create_project(char *project_name)
     }
 
     close(fd);
-    printf("Successfully created .Manifest\n");
+    printf("Successfully created Project Manifest on Client\n");
   }
   else
   {

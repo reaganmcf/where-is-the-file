@@ -204,10 +204,12 @@ int wtf_server_create_project(char *project_name)
   if (num_bytes <= 0)
   {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    close(fd);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   printf("\tSuccessfully created .Manifest file for %s\n", project_name);
+  close(fd);
   return 0;
 }
 
