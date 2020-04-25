@@ -97,4 +97,7 @@ int wtf_add(char *, char *);
 //Function Prototype for hashing a file helper function
 char *hash_file(char *path);
 
+//Function Prototype for checking if a path is a normal file and not a directory
+int isRegFile(const char *);
+
 #endif

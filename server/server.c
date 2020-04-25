@@ -118,6 +118,16 @@ void *wtf_process(void *pointer) {
     sprintf(ret_buffer, "%d", (status + 1) + 100);
     printf("\tSending back {%s} to the client\n", ret_buffer);
     write(connection->socket, ret_buffer, 5);
+  } else if (strcmp(command, COMMAND_CURRENT_VERSION_PROJECT) == 0) {
+    //Current Version (of a Project) command
+
+    //Extract project name param from socket
+    int project_name_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *project_name = malloc(project_name_size + 1);
+    project_name = strncpy(project_name, buffer, project_name_size);
+    int status = wtf_server_get_current_version(project_name);
   }
 
   //Close socket and cleanup
@@ -131,7 +141,7 @@ void *wtf_process(void *pointer) {
 /**
  * wtf_server_create_project
  * 
- * Handler for create-project directive
+ * Handler for create_project directive
  * 
  * Should check if the project name already exists in Projects/, and if it doesn't then create the manifest and send back the status code
  * 
@@ -190,6 +200,13 @@ int wtf_server_create_project(char *project_name) {
   close(fd);
   return 0;
 }
+
+/**
+ * wtf_server_get_current_version
+ * 
+ * Handler for the get_current_version directive
+ * 
+ * Should check if the project exists, and if it does, returns a list of all of the files 
 
 /**
  * Custom perror for our custom wtf_error

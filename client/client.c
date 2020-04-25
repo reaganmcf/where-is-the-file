@@ -127,7 +127,7 @@ int wtf_add(char *project_name, char *file) {
   if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST_ON_CLIENT, 1);
 
   //Check if the file exists in the project
-  if (access(file, F_OK) == -1) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, 1);
+  if (!isRegFile(file)) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, 1);
 
   //check if file already exists in the manifest
   char *buffer = malloc(150);
@@ -143,7 +143,6 @@ int wtf_add(char *project_name, char *file) {
   int curr_idx = 0;
   while (buffer[0] != '~' && n != 0) {
     n = read(manifest_fd, buffer, 1);
-    printf("reading in %c\n", buffer[0]);
   }
   strncpy(manifest_header_buffer, buffer, strlen(buffer));
   //We only need to check if there are file entries in the .Manifest
@@ -170,9 +169,9 @@ int wtf_add(char *project_name, char *file) {
     j = 0;
     if (file_entries[i] != NULL && strlen(file_entries[i]) != 0) {
       printf("[%d] - %s\n", i, file_entries[i]);
-      while (file_entries[i][j] != ':') {
-        // printf("\t file_entries[i][j] = %c\n", file_entries[i][j]);
-        temp_name_buffer[j] = file_entries[i][j];
+      while (file_entries[i][j + 2] != ':') {
+        printf("\t file_entries[i][j+2] = %c\n", file_entries[i][j + 2]);
+        temp_name_buffer[j] = file_entries[i][j + 2];
         j++;
       }
       temp_name_buffer[j + 1] = '\0';
@@ -190,8 +189,7 @@ int wtf_add(char *project_name, char *file) {
 
   memset(buffer, 0, 150);
   char *hash = hash_file(file);
-  sprintf(buffer, "\n~ %s:%.1f:%s:%s", file, 1.0, hash, "!");
-  printf("buffer is %s\n", buffer);
+  sprintf(buffer, "\n~ A:%s:%.1f:%s:%s", file, 1.0, hash, "!");
   n = write(manifest_fd, buffer, strlen(buffer));
   if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
 
@@ -420,4 +418,20 @@ void wtf_perror(wtf_error e, int should_exit) {
   if (should_exit == 1) {
     exit(errordesc[e].code);
   }
+}
+
+/**
+ * 
+ * isRegFile
+ * 
+ * Checks if the path provided is a normal file and not a directory
+ */
+int isRegFile(const char *path) {
+  struct stat statbuf;
+
+  if (stat(path, &statbuf) != 0) {
+    return 0;
+  }
+
+  return S_ISREG(statbuf.st_mode);
 }

@@ -17,9 +17,8 @@ Manifests are in the following format
 ```
 <project_name>
 <version_number>
-~   <file_path/name>/<file_current_version>/<file_hash>/!
-~   <file_path/name>/<file_current_version>/<file_hash>
+~ <A/D>:<file_path:name>:<file_current_version>:<file_hash>:!
+~ <A/D>:<file_path:name>:<file_current_version>:<file_hash>:
+~ <A/D>:<file_path:name>:<file_current_version>:<file_hash>:  
 ```
-
 If a file entry has `!` at the end, then it means that the server has not seen it.
-The params of each property for each file are separated by `\t`

@@ -8,10 +8,10 @@
 
 //Possible Command Strings for the Server
 const char *COMMAND_CREATE_PROJECT = "create_project";
+const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 
 //Possible Error Codes for the Server
-enum _error_codes
-{
+enum _error_codes {
   E_IMPROPER_PARAMS = 1,
   E_ERROR_MAKING_SOCKET = 2,
   E_ERROR_BINDING_SOCKET_TO_PORT = 3,
@@ -22,8 +22,7 @@ enum _error_codes
 
 typedef enum _error_codes wtf_error;
 
-struct _error_desc
-{
+struct _error_desc {
   int code;
   char *message;
 } errordesc[] = {
