@@ -267,17 +267,24 @@ int wtf_create_project(char *project_name) {
       remove(path);
     int fd = open(path, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
     if (fd == -1) {
+      free(buffer);
+      free(path);
       wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
     }
     write(fd, project_name, strlen(project_name));
     n = write(fd, "\n1", 2);
     if (n < 1) {
+      free(buffer);
+      free(path);
       wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
     }
 
     free(path);
     close(fd);
+    free(connection);
+    free(buffer);
     printf("Successfully created Project Manifest on Client\n");
+    return 1;
   } else {
     if (ret_status == 105) {
       wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 0);
@@ -287,7 +294,8 @@ int wtf_create_project(char *project_name) {
   }
 
   free(connection);
-  //TODO free buffer without crashing
+  free(buffer);
+  return 0;
 }
 
 /**
