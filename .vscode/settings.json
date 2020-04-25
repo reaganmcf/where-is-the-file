@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "bitset": "c",
+        "vector": "c",
+        "typeindex": "c"
+    }
+}
