@@ -248,7 +248,7 @@ char *hash_file(char *path) {
 int wtf_create_project(char *project_name) {
   //Establish connection to the server
   wtf_connection *connection = wtf_connect();
-  char *buffer = malloc(sizeof(100));
+  char *buffer = malloc(100);
   sprintf(buffer, "14:create_project:%d:%s", strlen(project_name) + 1, project_name);
   int msg_size = strlen(buffer) + 1;
   printf("Sending {%s} to the client (%d) bytes total\n", buffer, msg_size);
@@ -261,21 +261,21 @@ int wtf_create_project(char *project_name) {
 
     //Now we need to create the project on the client side (including .Manifest);
     mkdir(project_name, 0700);
-    char *path = malloc(100);
+    char *path = malloc(200);
     sprintf(path, "./%s/.Manifest", project_name);
     if (access(path, F_OK) != -1)
       remove(path);
     int fd = open(path, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
-    free(path);
     if (fd == -1) {
       wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
     }
     write(fd, project_name, strlen(project_name));
-    n = write(fd, "\n1.0", 4);
+    n = write(fd, "\n1", 2);
     if (n < 1) {
       wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
     }
 
+    free(path);
     close(fd);
     printf("Successfully created Project Manifest on Client\n");
   } else {
