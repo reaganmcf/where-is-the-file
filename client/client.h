@@ -30,7 +30,10 @@ enum _error_codes {
   E_FILE_ALREADY_ADDED_TO_MANIFEST = 18,
   E_FILE_DOESNT_EXIST = 19,
   E_CANNOT_READ_FILE = 20,
-  E_FILE_MAX_LENGTH = 21
+  E_FILE_MAX_LENGTH = 21,
+  E_IMPROPER_CURRENT_VERSION_PARAMS = 22,
+  E_IMPROPER_CURRENT_VERSION_PROJECT_NAME = 23,
+  E_SERVER_PROJECT_DOESNT_EXIST = 24,
 };
 
 typedef enum _error_codes wtf_error;
@@ -60,7 +63,10 @@ struct _error_desc {
     {E_FILE_ALREADY_ADDED_TO_MANIFEST, "File already exists in .Manifest for the client. Aborting add command"},
     {E_FILE_DOESNT_EXIST, "Provided file path does not exist"},
     {E_CANNOT_READ_FILE, "Provided file path does not have proper read permissions"},
-    {E_FILE_MAX_LENGTH, "Provided file is very large. Only reading the first 10000 characters"}
+    {E_FILE_MAX_LENGTH, "Provided file is very large. Only reading the first 10000 characters"},
+    {E_IMPROPER_CURRENT_VERSION_PARAMS, "Improper params for currentversion command. Please follow the format of ./WTF currentversion <project-name>"},
+    {E_IMPROPER_CURRENT_VERSION_PROJECT_NAME, "Improper project name provided for currentversion. Project names cannot contain ':'."},
+    {E_SERVER_PROJECT_DOESNT_EXIST, "Provided project name doesn't exist on the server."}
 
 };
 
@@ -93,6 +99,9 @@ int wtf_configure_host(char *hostname, char *port);
 
 //Function Prototype for adding file to .Manifest on client
 int wtf_add(char *, char *);
+
+//Function Prototype for fetching current state of a project on the server
+int wtf_get_current_version(char *);
 
 //Function Prototype for hashing a file helper function
 char *hash_file(char *path);

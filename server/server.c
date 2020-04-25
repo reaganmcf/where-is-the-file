@@ -18,6 +18,8 @@
  * Multithreaded Socket server to handle multiple connections at a time
  */
 
+int SOCKET_FD;
+
 int main(int argc, char **argv) {
   //Check if only a port is passed in as a param as it should
   if (argc == 1 || argc > 2) {
@@ -37,6 +39,8 @@ int main(int argc, char **argv) {
     wtf_perror(E_ERROR_MAKING_SOCKET, 1);
   }
 
+  SOCKET_FD = sock;
+
   //Bind socket to port
   address.sin_family = AF_INET;
   address.sin_addr.s_addr = INADDR_ANY;
@@ -50,6 +54,8 @@ int main(int argc, char **argv) {
   }
 
   printf("Server has started up Successfully. Listening for Connections...\n");
+
+  atexit(wtf_server_exit_handler);
 
   while (1) {
     //Listen for incoming connections
@@ -65,6 +71,18 @@ int main(int argc, char **argv) {
   }
 
   return 0;
+}
+
+/**
+ * Exit Handler for wtf_server
+ * 
+ * Close ports and sockets and free mem
+ * 
+ */
+static void wtf_server_exit_handler(void) {
+  printf("Handling exit safely. Freeing alloc'd memory...\n");
+  close(SOCKET_FD);
+  printf("Successfully handled exit.\n");
 }
 
 void *wtf_process(void *pointer) {
@@ -127,7 +145,15 @@ void *wtf_process(void *pointer) {
     buffer++;
     char *project_name = malloc(project_name_size + 1);
     project_name = strncpy(project_name, buffer, project_name_size);
-    int status = wtf_server_get_current_version(project_name);
+    char *ret = wtf_server_get_current_version(project_name);
+    if (ret[0] == '5') {
+      wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    } else if (ret[0] == '7') {
+      wtf_perror(E_PROJECT_DOESNT_EXIST, 0);
+    }
+    //Success! Write back the message
+    write(connection->socket, ret, strlen(ret));
+    free(ret);
   }
 
   //Close socket and cleanup
@@ -206,7 +232,91 @@ int wtf_server_create_project(char *project_name) {
  * 
  * Handler for the get_current_version directive
  * 
- * Should check if the project exists, and if it does, returns a list of all of the files 
+ * Should check if the project exists, and if it does, returns a list of all of the files under the project's name, including their version number
+ * 
+ * Returns:
+ *  "1:<return_string>" = success
+ *  "7" = E_PROJECT_DOESNT_EXIST
+ *  "5" = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
+ */
+char *wtf_server_get_current_version(char *project_name) {
+  char *path = malloc(150);
+  char *ret_string = malloc(500000);
+  sprintf(path, "./Projects/%s/.Manifest", project_name);
+  if (access(path, F_OK) == -1) {
+    sprintf(ret_string, "%d", E_PROJECT_DOESNT_EXIST);
+    return ret_string;
+  }
+
+  int manifest_fd = open(path, O_RDONLY);
+  if (manifest_fd < 0) {
+    close(manifest_fd);
+    free(path);
+    sprintf(ret_string, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+    return ret_string;
+  }
+
+  //now we need to read from the manifest
+  char *buffer = malloc(300);
+  int n = read(manifest_fd, buffer, strlen(project_name) + 1);
+  if (n <= 0) {
+    close(manifest_fd);
+    free(buffer);
+    sprintf(ret_string, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+    return ret_string;
+  }
+  memset(buffer, 0, 300);
+  char *t_number = malloc(100);
+  while (buffer[0] != '\n') {
+    strncat(t_number, buffer, 1);
+    n = read(manifest_fd, buffer, 1);
+  }
+  int project_version = atoi(t_number);
+  memset(t_number, 0, 100);
+  memset(buffer, 0, 300);
+  int file_count = 0;
+  char *temp_file_name = malloc(100);
+  int temp_file_version_number = 0;
+  while (n != 0) {
+    n = read(manifest_fd, buffer, 1);
+    if (buffer[0] == '~') {
+      memset(temp_file_name, 0, 100);
+      temp_file_version_number = 0;
+      read(manifest_fd, buffer, 1);
+      memset(buffer, 0, 100);
+      while (buffer[0] != ':') {
+        strncat(temp_file_name, buffer, 1);
+        n = read(manifest_fd, buffer, 1);
+      }
+      memset(buffer, 0, 300);
+      memset(t_number, 0, 100);
+      while (buffer[0] != ':') {
+        strncat(t_number, buffer, 1);
+        n = read(manifest_fd, buffer, 1);
+      }
+      temp_file_version_number = atoi(t_number);
+      printf("\ttemp_file_name = %s\n", temp_file_name);
+      printf("\ttemp_file_version_number = %d\n", temp_file_version_number);
+
+      sprintf(buffer, "%d:%s:%d:", strlen(temp_file_name), temp_file_name, temp_file_version_number);
+      strncat(ret_string, buffer, strlen(buffer));
+      file_count++;
+    }
+  }
+  char *final_ret_string = malloc(500000);
+  sprintf(final_ret_string, "1:%d:%d:%s", project_version, file_count, ret_string);  //Add 1 to front as we check for success code
+  printf("\tSuccessfully built return string\n");
+  printf("\tReturn string is: %s\n", final_ret_string);
+
+  free(t_number);
+  free(ret_string);
+  free(temp_file_name);
+  free(buffer);
+  free(path);
+  close(manifest_fd);
+
+  return final_ret_string;
+}
 
 /**
  * Custom perror for our custom wtf_error
@@ -218,7 +328,7 @@ int wtf_server_create_project(char *project_name) {
 void wtf_perror(wtf_error e, int should_exit) {
   printf("\033[0;31m");
   printf("\t[ Error Code %d ] %s\n", errordesc[e].code, errordesc[e].message);
-  printf("\033[0m");
+  printf("\033[0m\n");
 
   if (should_exit == 1) {
     exit(errordesc[e].code);

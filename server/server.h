@@ -17,7 +17,8 @@ enum _error_codes {
   E_ERROR_BINDING_SOCKET_TO_PORT = 3,
   E_CANNOT_LISTEN_TO_PORT = 4,
   E_CANNOT_READ_OR_WRITE_PROJECT_DIR = 5,
-  E_PROJECT_ALREADY_EXISTS = 6
+  E_PROJECT_ALREADY_EXISTS = 6,
+  E_PROJECT_DOESNT_EXIST = 7
 };
 
 typedef enum _error_codes wtf_error;
@@ -32,7 +33,8 @@ struct _error_desc {
     {E_ERROR_BINDING_SOCKET_TO_PORT, "There was an error while attempting to bind the socket to the port provided."},
     {E_CANNOT_LISTEN_TO_PORT, "Unable to have the socket listen on the provided port."},
     {E_CANNOT_READ_OR_WRITE_PROJECT_DIR, "Unable to read or write to ./Manifests/ directory."},
-    {E_PROJECT_ALREADY_EXISTS, "Project already exists with this name."}
+    {E_PROJECT_ALREADY_EXISTS, "Project already exists with this name."},
+    {E_PROJECT_DOESNT_EXIST, "Project doesn't exist on the server."}
 
 };
 
@@ -46,8 +48,14 @@ typedef struct
 //Function Prototype for multithreaded connection handler
 void *wtf_process(void *);
 
+//Function Prototype for exit handler
+static void wtf_server_exit_handler(void);
+
 //Function Prototype for creating the Project Manifest
 int wtf_server_create_project(char *);
+
+//Function Prototype for retrieving the state of the Project
+char *wtf_server_get_current_version(char *project_name);
 
 //Function Prototype for printing custom errors
 void wtf_perror(wtf_error e, int should_exit);

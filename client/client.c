@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
 
     //All ready, create a connection handler and call server
     int result = wtf_create_project(project_name);
+
   } else if (strcmp(command, "add") == 0) {
     //Check for params
     if (argc != 4) {
@@ -92,6 +93,33 @@ int main(int argc, char **argv) {
     } else {
       //Won't ever get here because errors will be handeled inside of wtf_add first
     }
+  } else if (strcmp(command, "currentversion") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_CURRENT_VERSION_PARAMS, 1);
+    }
+    char *project_name = argv[2];
+
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_CURRENT_VERSION_PROJECT_NAME, 1);
+    }
+
+    //All ready, create a connection handler and call the server
+    int result = wtf_get_current_version(project_name);
+    if (result == 1) {
+      printf("Successfully retrieved project information from the server.\n");
+      return 0;
+    } else {
+      //Wont ever get here because errors will be handled inside of wtf_get_current_version first
+    }
   }
 
   // wtf_connection *connection = wtf_connect();
@@ -108,6 +136,98 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * 
+ * Get current version of a project on the server
+ * 
+ * Contacts the server and attempts to retrieve all of the information about the project and prints it out
+ * 
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_get_current_version(char *project_name) {
+  //Establish connection to the server
+  wtf_connection *connection = wtf_connect();
+  char *buffer = malloc(200);
+  char *ret_string = malloc(500000);
+  sprintf(buffer, "19:get_current_version:%d:%s", strlen(project_name) + 1, project_name);
+  int msg_size = strlen(buffer) + 1;
+  printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
+  write(connection->socket, &msg_size, sizeof(int));
+  write(connection->socket, buffer, strlen(buffer) + 1);
+
+  //Handle call back here
+  memset(buffer, 0, 200);
+  memset(ret_string, 0, 500000);
+  read(connection->socket, ret_string, 500000);
+  if (ret_string[0] == '1' && ret_string[1] == ':') {
+    //Success, trim off first 2 chars to extract the string
+    ret_string += 2;
+
+    //String format is the following
+    // <project_version_number>:<file_count>:<file1_name_length>:<file1_name>:<file1_version_number>:<file2_name_length>:<file2_name>:<file2_version_number>...
+
+    //Loop over string and print out in proper format
+    printf("Project: %s\n", project_name);
+    printf("Version: ");
+    int i = 0;
+    while (ret_string[i] != ':') {  //version  number
+      printf("%c", ret_string[i]);
+      i++;
+    }
+    i++;
+    printf("\n");
+    while (ret_string[i] != ':') {  //total files
+      sprintf(buffer, "%s%c", buffer, ret_string[i]);
+      i++;
+    }
+    i++;
+    int total_files = atoi(buffer);
+    printf("%d Total Files:\n", total_files);
+
+    int j = 0;
+    for (j = 0; j < total_files; j++) {
+      printf("\t");
+      while (ret_string[i] != ':') i++;
+      i++;
+      while (ret_string[i] != ':') {
+        printf("%c", ret_string[i]);
+        i++;
+      }
+      i++;
+      printf(" Version: ");
+      while (ret_string[i] != ':') {
+        printf("%c", ret_string[i]);
+        i++;
+      }
+      i++;
+      printf("\n");
+    }
+
+    ret_string -= 2;  //move pointer back so we can free correctly
+
+    free(ret_string);
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    return 1;
+
+  } else if (ret_string[0] == '7') {
+    free(ret_string);
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, 1);
+  } else {
+    free(ret_string);
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
+  }
 }
 
 /**
@@ -189,7 +309,7 @@ int wtf_add(char *project_name, char *file) {
 
   memset(buffer, 0, 150);
   char *hash = hash_file(file);
-  sprintf(buffer, "\n~ A:%s:%.1f:%s:%s", file, 1.0, hash, "!");
+  sprintf(buffer, "\n~ A:%s:%d:%s:%s", file, 1, hash, "!");
   n = write(manifest_fd, buffer, strlen(buffer));
   if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
 
@@ -249,7 +369,7 @@ int wtf_create_project(char *project_name) {
   char *buffer = malloc(100);
   sprintf(buffer, "14:create_project:%d:%s", strlen(project_name) + 1, project_name);
   int msg_size = strlen(buffer) + 1;
-  printf("Sending {%s} to the client (%d) bytes total\n", buffer, msg_size);
+  printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, buffer, strlen(buffer) + 1);
   int n = read(connection->socket, buffer, 4);
