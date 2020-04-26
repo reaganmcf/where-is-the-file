@@ -299,7 +299,7 @@ char *wtf_server_get_current_version(char *project_name) {
   }
   memset(buffer, 0, 10000);
   char *t_number = malloc(100);
-  while (buffer[0] != '\n') {
+  while (buffer[0] != '\n' && n != 0) {
     strncat(t_number, buffer, 1);
     n = read(manifest_fd, buffer, 1);
   }
@@ -349,6 +349,7 @@ char *wtf_server_get_current_version(char *project_name) {
       file_count++;
     }
   }
+  if (file_count == 0) printf("NO FILES\n");
   char *final_ret_string = malloc(500000);
   memset(final_ret_string, 0, 500000);
   sprintf(final_ret_string, "1:%d:%d:%s", project_version, file_count, ret_string);  //Add 1 to front as we check for success code

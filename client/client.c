@@ -174,11 +174,14 @@ int wtf_commit(char *project_name) {
   //First we need to fetch the server .Manifest and parse it
   Manifest *server_manifest = fetch_server_manifest(project_name);
   Manifest *client_manifest = fetch_client_manifest(project_name);
-
   printf("\n");
   print_manifest(server_manifest, SERVER, 1);
   printf("\n");
   print_manifest(client_manifest, CLIENT, 1);
+
+  //Most of the error checks are handled inside of fetch_server_manifest and fetch_client_manifest, which is why there aren't any checks above this line
+
+  //Check
 
   free_manifest(server_manifest);
   free_manifest(client_manifest);
