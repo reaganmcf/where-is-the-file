@@ -19,6 +19,7 @@
  */
 
 int SOCKET_FD;
+pthread_mutex_t lock;
 
 int main(int argc, char **argv) {
   //Check if only a port is passed in as a param as it should
@@ -53,6 +54,11 @@ int main(int argc, char **argv) {
     wtf_perror(E_CANNOT_LISTEN_TO_PORT, 1);
   }
 
+  //setup mutex
+  if (pthread_mutex_init(&lock, NULL) != 0) {
+    wtf_perror(E_CANNOT_INIT_MUTEX, 1);
+  }
+
   printf("Server has started up Successfully. Listening for Connections...\n");
 
   atexit(wtf_server_exit_handler);
@@ -69,6 +75,8 @@ int main(int argc, char **argv) {
       pthread_detach(thread);
     }
   }
+
+  pthread_mutex_destroy(&lock);
 
   return 0;
 }
@@ -153,6 +161,7 @@ void *wtf_process(void *pointer) {
     }
     //Success! Write back the message
     write(connection->socket, ret, strlen(ret));
+    memset(ret, 0, 500000);
     free(ret);
   }
 
@@ -174,6 +183,9 @@ void *wtf_process(void *pointer) {
  * Returns 0 if successful, and an E_ERROR_CODE enum otherwise
  */
 int wtf_server_create_project(char *project_name) {
+  //lock mutex
+  pthread_mutex_lock(&lock);
+
   //First we need to loop over the directory ./Projects/ and check if any of the file names already exist
   DIR *d;
   struct dirent *dir;
@@ -190,11 +202,13 @@ int wtf_server_create_project(char *project_name) {
     closedir(d);
   } else {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   if (name_exists == 1) {
     wtf_perror(E_PROJECT_ALREADY_EXISTS, 0);
+    pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
@@ -207,6 +221,10 @@ int wtf_server_create_project(char *project_name) {
   int fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
   if (fd == -1) {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    free(path);
+    close(fd);
+    //unlock
+    pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
@@ -218,12 +236,19 @@ int wtf_server_create_project(char *project_name) {
   printf("\t write finished \n");
   if (num_bytes <= 0) {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    free(path);
+    close(fd);
+    //unlock
+    pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   printf("\tSuccessfully created .Manifest file for %s\n", project_name);
   free(path);
   close(fd);
+
+  //unlock
+  pthread_mutex_unlock(&lock);
   return 0;
 }
 
@@ -240,11 +265,16 @@ int wtf_server_create_project(char *project_name) {
  *  "5" = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
  */
 char *wtf_server_get_current_version(char *project_name) {
+  //lock
+  pthread_mutex_lock(&lock);
+
   char *path = malloc(150);
   char *ret_string = malloc(500000);
   sprintf(path, "./Projects/%s/.Manifest", project_name);
   if (access(path, F_OK) == -1) {
     sprintf(ret_string, "%d", E_PROJECT_DOESNT_EXIST);
+    pthread_mutex_unlock(&lock);
+    free(path);
     return ret_string;
   }
 
@@ -253,19 +283,21 @@ char *wtf_server_get_current_version(char *project_name) {
     close(manifest_fd);
     free(path);
     sprintf(ret_string, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+    pthread_mutex_unlock(&lock);
     return ret_string;
   }
 
   //now we need to read from the manifest
-  char *buffer = malloc(300);
+  char *buffer = malloc(10000);
   int n = read(manifest_fd, buffer, strlen(project_name) + 1);
   if (n <= 0) {
     close(manifest_fd);
     free(buffer);
     sprintf(ret_string, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+    pthread_mutex_unlock(&lock);
     return ret_string;
   }
-  memset(buffer, 0, 300);
+  memset(buffer, 0, 10000);
   char *t_number = malloc(100);
   while (buffer[0] != '\n') {
     strncat(t_number, buffer, 1);
@@ -273,9 +305,11 @@ char *wtf_server_get_current_version(char *project_name) {
   }
   int project_version = atoi(t_number);
   memset(t_number, 0, 100);
-  memset(buffer, 0, 300);
+  memset(buffer, 0, 10000);
+  memset(ret_string, 0, 500000);
   int file_count = 0;
   char *temp_file_name = malloc(100);
+  char *temp_hash = malloc(300);
   int temp_file_version_number = 0;
   while (n != 0) {
     n = read(manifest_fd, buffer, 1);
@@ -283,37 +317,53 @@ char *wtf_server_get_current_version(char *project_name) {
       memset(temp_file_name, 0, 100);
       temp_file_version_number = 0;
       read(manifest_fd, buffer, 1);
-      memset(buffer, 0, 100);
+      memset(buffer, 0, 10000);
       while (buffer[0] != ':') {
         strncat(temp_file_name, buffer, 1);
         n = read(manifest_fd, buffer, 1);
       }
-      memset(buffer, 0, 300);
+      memset(buffer, 0, 10000);
       memset(t_number, 0, 100);
       while (buffer[0] != ':') {
         strncat(t_number, buffer, 1);
         n = read(manifest_fd, buffer, 1);
       }
       temp_file_version_number = atoi(t_number);
-      printf("\ttemp_file_name = %s\n", temp_file_name);
-      printf("\ttemp_file_version_number = %d\n", temp_file_version_number);
+
+      memset(buffer, 0, 10000);
+      memset(temp_hash, 0, 300);
+      while (buffer[0] != ':') {
+        strncat(temp_hash, buffer, 1);
+        n = read(manifest_fd, buffer, 1);
+      }
+      // printf("\ttemp_file_name = %s\n", temp_file_name);
+      // printf("\ttemp_file_version_number = %d\n", temp_file_version_number);
+      // printf("\ttemp_hash = %s\n", temp_hash);
+      memset(buffer, 0, 10000);
 
       sprintf(buffer, "%d:%s:%d:", strlen(temp_file_name), temp_file_name, temp_file_version_number);
-      strncat(ret_string, buffer, strlen(buffer));
+      sprintf(buffer, "%s%d:%s:", buffer, strlen(temp_hash), temp_hash);
+      // printf("buffer is %s\n", buffer);
+      sprintf(ret_string, "%s%s", ret_string, buffer);
+      // printf("ret_string is %s\n", ret_string);
       file_count++;
     }
   }
   char *final_ret_string = malloc(500000);
+  memset(final_ret_string, 0, 500000);
   sprintf(final_ret_string, "1:%d:%d:%s", project_version, file_count, ret_string);  //Add 1 to front as we check for success code
   printf("\tSuccessfully built return string\n");
   printf("\tReturn string is: %s\n", final_ret_string);
 
   free(t_number);
+  free(temp_hash);
   free(ret_string);
   free(temp_file_name);
   free(buffer);
   free(path);
   close(manifest_fd);
+
+  pthread_mutex_unlock(&lock);
 
   return final_ret_string;
 }

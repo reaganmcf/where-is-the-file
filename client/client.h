@@ -7,6 +7,11 @@
 #define CLIENT_H
 
 #define WTF_CONFIGURATION_FILE_PATH "./.configuration"
+#define OPCODE_ADD 'A'
+#define OPCODE_DELETE 'D'
+#define OPCODE_NONE 'N'
+#define CLIENT 0
+#define SERVER 1
 
 //Possible Error Codes for the Client
 enum _error_codes {
@@ -35,7 +40,8 @@ enum _error_codes {
   E_IMPROPER_CURRENT_VERSION_PROJECT_NAME = 23,
   E_SERVER_PROJECT_DOESNT_EXIST = 24,
   E_IMPROPER_COMMIT_PARAMS = 25,
-  E_IMPROPER_COMMIT_PROJECT_NAME = 26
+  E_IMPROPER_COMMIT_PROJECT_NAME = 26,
+  E_CANNOT_READ_MANIFEST = 27
 };
 
 typedef enum _error_codes wtf_error;
@@ -70,7 +76,8 @@ struct _error_desc {
     {E_IMPROPER_CURRENT_VERSION_PROJECT_NAME, "Improper project name provided for currentversion. Project names cannot contain ':'."},
     {E_SERVER_PROJECT_DOESNT_EXIST, "Provided project name doesn't exist on the server."},
     {E_IMPROPER_COMMIT_PARAMS, "Improper params for commit command. Please follow the format of ./WTF commit <project-name>"},
-    {E_IMPROPER_COMMIT_PROJECT_NAME, "Improper project name provided for commit. Project names cannot contain ':'"}
+    {E_IMPROPER_COMMIT_PROJECT_NAME, "Improper project name provided for commit. Project names cannot contain ':'"},
+    {E_CANNOT_READ_MANIFEST, "Improper permissions to read .Manifest"}
 
 };
 
@@ -89,6 +96,7 @@ typedef struct _manifest_file {
   char *file_path;
   int version_number;
   char *hash;
+  int seen_by_server;
 } ManifestFileEntry;
 
 //Struct for handling complicated .Manifest
@@ -129,8 +137,11 @@ int wtf_commit(char *);
 //Function Prototype for fetching the server .Manifest and populating Manifest struct
 Manifest *fetch_server_manifest(char *);
 
+//Function Prototype for fetching the client .Manifest and populating Manifest struct
+Manifest *fetch_client_manifest(char *);
+
 //Function Prototype for printing Manifest out as string
-void print_manifest(Manifest *);
+void print_manifest(Manifest *, int, int);
 
 //Function Prototype for freeing Manifest
 void free_manifest(Manifest *);
