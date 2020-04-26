@@ -120,6 +120,26 @@ int main(int argc, char **argv) {
     } else {
       //Wont ever get here because errors will be handled inside of wtf_get_current_version first
     }
+  } else if (strcmp(command, "commit") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_COMMIT_PARAMS, 1);
+    }
+    char *project_name = argv[2];
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_COMMIT_PROJECT_NAME, 1);
+    }
+
+    //All ready, create a connection handler and call server
+    int result = wtf_commit(project_name);
   }
 
   // wtf_connection *connection = wtf_connect();
@@ -139,17 +159,31 @@ static void wtf_exit_handler(void) {
 }
 
 /**
+ * Commit project command
  * 
- * Get current version of a project on the server
- * 
- * Contacts the server and attempts to retrieve all of the information about the project and prints it out
- * 
- * Returns:
+ * Will fetch the server's .Manifest and check if the version match. If they don't, tell client to update project.
+ * If they do, then run through the client .Manifest and compute live hash for each file listed. For each hash that is different then the stored hash in the client's .Manifest,
+ * write out an entry to a .Commit with an incremented file version number
+ *
+ * Returns
  *  0 = Failure
  *  1 = Success
+ * 
  */
-int wtf_get_current_version(char *project_name) {
-  //Establish connection to the server
+int wtf_commit(char *project_name) {
+  //First we need to fetch the server .Manifest and parse it
+  Manifest *server_manifest = fetch_server_manifest(project_name);
+  print_manifest(server_manifest);
+}
+
+/**
+ * Helper function for fetching the server manifest and populating a Manifest data structure
+ * 
+ * Returns
+ *  NULL = Failure
+ *  Manifest* = Success
+ */
+Manifest *fetch_server_manifest(char *project_name) {
   wtf_connection *connection = wtf_connect();
   char *buffer = malloc(200);
   char *ret_string = malloc(500000);
@@ -164,56 +198,70 @@ int wtf_get_current_version(char *project_name) {
   memset(ret_string, 0, 500000);
   read(connection->socket, ret_string, 500000);
   if (ret_string[0] == '1' && ret_string[1] == ':') {
+    Manifest *server_manifest = malloc(sizeof(Manifest));
+    server_manifest->project_name = malloc(120);
+    strcpy(server_manifest->project_name, project_name);
+
     //Success, trim off first 2 chars to extract the string
     ret_string += 2;
 
     //String format is the following
-    // <project_version_number>:<file_count>:<file1_name_length>:<file1_name>:<file1_version_number>:<file2_name_length>:<file2_name>:<file2_version_number>...
+    //    <project_version_number>:<file_count>:<file1_name_length>:<file1_name>:<file1_version_number>:<file2_name_length>:<file2_name>:<file2_version_number>...
 
-    //Loop over string and print out in proper format
-    printf("Project: %s\n", project_name);
-    printf("Version: ");
     int i = 0;
-    while (ret_string[i] != ':') {  //version  number
-      printf("%c", ret_string[i]);
-      i++;
-    }
-    i++;
-    printf("\n");
-    while (ret_string[i] != ':') {  //total files
+    while (ret_string[i] != ':') {  // version number
       sprintf(buffer, "%s%c", buffer, ret_string[i]);
       i++;
     }
     i++;
-    int total_files = atoi(buffer);
-    printf("%d Total Files:\n", total_files);
+    server_manifest->version_number = atoi(buffer);
 
+    memset(buffer, 0, 200);
+    while (ret_string[i] != ':') {  // total files
+      sprintf(buffer, "%s%c", buffer, ret_string[i]);
+      i++;
+    }
+    i++;
+    server_manifest->file_count = atoi(buffer);
+    server_manifest->files = malloc(sizeof(ManifestFileEntry *) * server_manifest->file_count);
+
+    memset(buffer, 0, 200);
     int j = 0;
-    for (j = 0; j < total_files; j++) {
-      printf("\t");
-      while (ret_string[i] != ':') i++;
-      i++;
-      while (ret_string[i] != ':') {
-        printf("%c", ret_string[i]);
+    for (j = 0; j < server_manifest->file_count; j++) {
+      server_manifest->files[j] = malloc(sizeof(ManifestFileEntry));
+      memset(buffer, 0, 200);
+      while (ret_string[i] != ':') {  //file_path length
+        sprintf(buffer, "%s%c", buffer, ret_string[i]);
         i++;
       }
       i++;
-      printf(" Version: ");
-      while (ret_string[i] != ':') {
-        printf("%c", ret_string[i]);
+      server_manifest->files[j]->file_path = malloc(atoi(buffer));
+
+      memset(buffer, 0, 200);
+      while (ret_string[i] != ':') {  //file_path
+        sprintf(buffer, "%s%c", buffer, ret_string[i]);
         i++;
       }
       i++;
-      printf("\n");
+      strcpy(server_manifest->files[j]->file_path, buffer);
+
+      memset(buffer, 0, 200);
+      while (ret_string[i] != ':') {  //file_version_number
+        sprintf(buffer, "%s%c", buffer, ret_string[i]);
+        i++;
+      }
+      i++;
+      server_manifest->files[j]->version_number = atoi(buffer);
     }
 
-    ret_string -= 2;  //move pointer back so we can free correctly
+    //Move pointer back so we can free the block correctly
+    ret_string -= 2;
 
-    free(ret_string);
     free(buffer);
+    free(ret_string);
     close(connection->socket);
     free(connection);
-    return 1;
+    return server_manifest;
 
   } else if (ret_string[0] == '7') {
     free(ret_string);
@@ -228,6 +276,27 @@ int wtf_get_current_version(char *project_name) {
     free(connection);
     wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
   }
+}
+
+/**
+ * 
+ * Get current version of a project on the server
+ * 
+ * Contacts the server and attempts to retrieve all of the information about the project and prints it out
+ * 
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_get_current_version(char *project_name) {
+  Manifest *m = fetch_server_manifest(project_name);
+  if (m == NULL) return 0;
+  print_manifest(m);
+
+  //free manifest
+  free_manifest(m);
+
+  return 1;
 }
 
 /**
@@ -554,4 +623,38 @@ int isRegFile(const char *path) {
   }
 
   return S_ISREG(statbuf.st_mode);
+}
+
+/**
+ * 
+ * print_manifest
+ * 
+ * Prints manifest as readable string
+ */
+void print_manifest(Manifest *m) {
+  printf("Project: %s\n", m->project_name);
+  printf("Version: %d\n", m->version_number);
+  printf("%d Total Files:\n", m->file_count);
+  int i;
+  for (i = 0; i < m->file_count; i++) {
+    printf("\t%s Version: %d\n", m->files[i]->file_path, m->files[i]->version_number);
+  }
+}
+
+/**
+ * 
+ * free_manifest
+ * 
+ * Frees a manifest data structure
+ */
+void free_manifest(Manifest *m) {
+  int i;
+  for (i = 0; i < m->file_count; i++) {
+    free(m->files[i]->file_path);
+    free(m->files[i]->hash);
+    free(m->files[i]);
+  }
+  free(m->project_name);
+  free(m->files);
+  free(m);
 }

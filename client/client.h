@@ -34,6 +34,8 @@ enum _error_codes {
   E_IMPROPER_CURRENT_VERSION_PARAMS = 22,
   E_IMPROPER_CURRENT_VERSION_PROJECT_NAME = 23,
   E_SERVER_PROJECT_DOESNT_EXIST = 24,
+  E_IMPROPER_COMMIT_PARAMS = 25,
+  E_IMPROPER_COMMIT_PROJECT_NAME = 26
 };
 
 typedef enum _error_codes wtf_error;
@@ -66,7 +68,9 @@ struct _error_desc {
     {E_FILE_MAX_LENGTH, "Provided file is very large. Only reading the first 10000 characters"},
     {E_IMPROPER_CURRENT_VERSION_PARAMS, "Improper params for currentversion command. Please follow the format of ./WTF currentversion <project-name>"},
     {E_IMPROPER_CURRENT_VERSION_PROJECT_NAME, "Improper project name provided for currentversion. Project names cannot contain ':'."},
-    {E_SERVER_PROJECT_DOESNT_EXIST, "Provided project name doesn't exist on the server."}
+    {E_SERVER_PROJECT_DOESNT_EXIST, "Provided project name doesn't exist on the server."},
+    {E_IMPROPER_COMMIT_PARAMS, "Improper params for commit command. Please follow the format of ./WTF commit <project-name>"},
+    {E_IMPROPER_COMMIT_PROJECT_NAME, "Improper project name provided for commit. Project names cannot contain ':'"}
 
 };
 
@@ -78,6 +82,22 @@ typedef struct _wtf_connection {
   int port;
   int len;
 } wtf_connection;
+
+//Struct for handling complicated file entries in .Manifest
+typedef struct _manifest_file {
+  char op_code;
+  char *file_path;
+  int version_number;
+  char *hash;
+} ManifestFileEntry;
+
+//Struct for handling complicated .Manifest
+typedef struct _manifest {
+  char *project_name;
+  int version_number;
+  int file_count;
+  ManifestFileEntry **files;
+} Manifest;
 
 //Struct for .configuration
 typedef struct _configuration {
@@ -102,6 +122,18 @@ int wtf_add(char *, char *);
 
 //Function Prototype for fetching current state of a project on the server
 int wtf_get_current_version(char *);
+
+//Function Prototype for commit
+int wtf_commit(char *);
+
+//Function Prototype for fetching the server .Manifest and populating Manifest struct
+Manifest *fetch_server_manifest(char *);
+
+//Function Prototype for printing Manifest out as string
+void print_manifest(Manifest *);
+
+//Function Prototype for freeing Manifest
+void free_manifest(Manifest *);
 
 //Function Prototype for hashing a file helper function
 char *hash_file(char *path);
