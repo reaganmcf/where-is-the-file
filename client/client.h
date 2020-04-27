@@ -48,7 +48,9 @@ enum _error_codes {
   E_CANNOT_COMMIT_CONFLICT_EXISTS = 30,
   E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS = 31,
   E_IMPROPER_REMOVE_PARAMS = 32,
-  E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST = 33
+  E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST = 33,
+  E_CANNOT_COMMIT_MUST_SYNCH_FIRST = 34,
+  E_CANNOT_WRITE_COMMIT = 35
 };
 
 typedef enum _error_codes wtf_error;
@@ -90,7 +92,9 @@ struct _error_desc {
     {E_CANNOT_COMMIT_CONFLICT_EXISTS, "Unable to commit because .Conflict exists"},
     {E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, "Unable to commit because server .Manifest and client .Manifest have mismatched version numbers. Please update your local project first"},
     {E_IMPROPER_REMOVE_PARAMS, "Improper params for remove command. Please follow the format of ./WTF remove <project-name> <file-path>"},
-    {E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, "Provided file path doesn't exist in the project's Manifest"}
+    {E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, "Provided file path doesn't exist in the project's Manifest"},
+    {E_CANNOT_COMMIT_MUST_SYNCH_FIRST, "Cannot commit because the client must synch with repository before committing changes."},
+    {E_CANNOT_WRITE_COMMIT, "Improper permissions to write to .Commit"}
 
 };
 

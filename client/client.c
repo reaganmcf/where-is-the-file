@@ -211,12 +211,16 @@ int wtf_commit(char *project_name) {
     int fd = open(buffer, O_RDONLY);
     if (fd <= 0) {
       free(buffer);
+      free(client_manifest);
+      free(server_manifest);
       wtf_perror(E_CANNOT_READ_UPDATE_FILE, 1);
     }
     n = read(fd, buffer, 1);
     if (n != 0) {
       close(fd);
       free(buffer);
+      free(client_manifest);
+      free(server_manifest);
       wtf_perror(E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, 1);
     }
   }
@@ -226,12 +230,16 @@ int wtf_commit(char *project_name) {
   sprintf(buffer, "%s/.Conflict", project_name);
   if (access(buffer, F_OK) != -1) {
     free(buffer);
+    free(client_manifest);
+    free(server_manifest);
     wtf_perror(E_CANNOT_COMMIT_CONFLICT_EXISTS, 1);
   }
 
   //Manifest Version Check
   if (server_manifest->version_number != client_manifest->version_number) {
     free(buffer);
+    free(client_manifest);
+    free(server_manifest);
     wtf_perror(E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, 1);
   }
 
@@ -240,12 +248,12 @@ int wtf_commit(char *project_name) {
   char *hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
   memset(hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
   for (i = 0; i < client_manifest->file_count; i++) {
-    printf("Old hash: %s\n", client_manifest->files[i]->hash);
+    // printf("Old hash: %s\n", client_manifest->files[i]->hash);
     hash = hash_file(client_manifest->files[i]->file_path);
     client_manifest->files[i]->new_hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
     memset(client_manifest->files[i]->new_hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
     strncpy(client_manifest->files[i]->new_hash, hash, strlen(hash));
-    printf("New hash: %s\n", client_manifest->files[i]->new_hash);
+    // printf("New hash: %s\n", client_manifest->files[i]->new_hash);
 
     //if they are not equal then increment the version number
     if (strcmp(client_manifest->files[i]->hash, client_manifest->files[i]->new_hash) != 0) client_manifest->files[i]->version_number++;
@@ -263,11 +271,30 @@ int wtf_commit(char *project_name) {
 
   char *commit_buffer = malloc(500000);
 
-  //Modify Code case: server and client have the same file and same hash, but client new_hash != client hash
+  //Check if client needs to sync first
   int j;
   for (i = 0; i < client_manifest->file_count; i++) {
     for (j = 0; j < server_manifest->file_count; j++) {
-      printf("here, checkign 256\n");
+      if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+        //same file, check if hashes are different
+        if (strcmp(client_manifest->files[i]->hash, server_manifest->files[j]->hash) != 0) {
+          //different hashes, check if server version number is greater or equal to clients
+          if (server_manifest->files[j]->version_number >= client_manifest->files[i]->version_number) {
+            //SHOULD FAIL NEED TO UPDATE
+            free(commit_buffer);
+            free(buffer);
+            free_manifest(server_manifest);
+            free_manifest(client_manifest);
+            wtf_perror(E_CANNOT_COMMIT_MUST_SYNCH_FIRST, 1);
+          }
+        }
+      }
+    }
+  }
+
+  //Modify Code case: server and client have the same file and same hash, but client new_hash != client hash
+  for (i = 0; i < client_manifest->file_count; i++) {
+    for (j = 0; j < server_manifest->file_count; j++) {
       if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
         //Same file, now lets check if hashes are different on client side
         if (strcmp(client_manifest->files[i]->new_hash, server_manifest->files[j]->hash) != 0) {
@@ -293,12 +320,55 @@ int wtf_commit(char *project_name) {
     }
     if (server_has_file == 0) {
       printf("%c %s\n", OPCODE_ADD, client_manifest->files[i]->file_path);
-      sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_ADD, client_manifest->files[i]->file_path, server_manifest->files[j]->hash);
+      sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_ADD, client_manifest->files[i]->file_path, client_manifest->files[i]->new_hash);
     }
   }
 
-  // free_manifest(server_manifest);
-  // free_manifest(client_manifest);
+  //Delete Code case: server has the file but client doesn't
+  int client_has_file;
+  for (i = 0; i < server_manifest->file_count; i++) {
+    client_has_file = 0;
+    for (j = 0; j < client_manifest->file_count; j++) {
+      if (strcmp(server_manifest->files[i]->file_path, client_manifest->files[j]->file_path) == 0) {
+        client_has_file = 1;
+      }
+    }
+    if (client_has_file == 0) {
+      printf("%c %s\n", OPCODE_DELETE, server_manifest->files[i]->file_path);
+      sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_DELETE, server_manifest->files[i]->file_path, server_manifest->files[i]->hash);
+    }
+  }
+
+  printf("commit buffer finished. \n%s\n", commit_buffer);
+
+  //Write .Commit
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "%s/.Commit", project_name);
+  int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd == -1) {
+    free(buffer);
+    free(commit_buffer);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    wtf_perror(E_CANNOT_WRITE_COMMIT, 1);
+  }
+  n = write(fd, commit_buffer, strlen(commit_buffer));
+  if (n <= 0) {
+    free(buffer);
+    free(commit_buffer);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    close(fd);
+    wtf_perror(E_CANNOT_WRITE_COMMIT, 1);
+  }
+
+  //free and return
+  free(buffer);
+  free(commit_buffer);
+  free_manifest(server_manifest);
+  free_manifest(client_manifest);
+  close(fd);
+  return 1;
 }
 
 /**
@@ -472,7 +542,7 @@ Manifest *fetch_server_manifest(char *project_name) {
         i++;
       }
       i++;
-      server_manifest->files[j]->hash = malloc(atoi(buffer));
+      server_manifest->files[j]->hash = malloc(atoi(buffer) + 1);
 
       memset(buffer, 0, 200);
       while (ret_string[i] != ':') {  //hash
@@ -481,6 +551,8 @@ Manifest *fetch_server_manifest(char *project_name) {
       }
       i++;
       strcpy(server_manifest->files[j]->hash, buffer);
+
+      server_manifest->files[j]->new_hash = NULL;
     }
 
     //Move pointer back so we can free the block correctly
@@ -631,6 +703,8 @@ Manifest *fetch_client_manifest(char *project_name) {
       client_manifest->files[j]->seen_by_server = 1;
     }
     // printf("\tSeen by Server = %d\n", client_manifest->files[j]->seen_by_server);
+
+    client_manifest->files[j]->new_hash = NULL;
   }
 
   //free mem and return
@@ -1033,7 +1107,7 @@ void free_manifest(Manifest *m) {
   for (i = 0; i < m->file_count; i++) {
     free(m->files[i]->file_path);
     free(m->files[i]->hash);
-    free(m->files[i]->new_hash);
+    if (m->files[i]->new_hash != NULL) free(m->files[i]->new_hash);
     free(m->files[i]);
   }
   free(m->project_name);
