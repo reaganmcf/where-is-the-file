@@ -140,6 +140,25 @@ int main(int argc, char **argv) {
 
     //All ready, create a connection handler and call server
     int result = wtf_commit(project_name);
+  } else if (strcmp(command, "remove") == 0) {
+    //Check for params
+    if (argc != 4) {
+      wtf_perror(E_IMPROPER_REMOVE_PARAMS, 1);
+    }
+
+    char *project_name = argv[2];
+    char *file = argv[3];
+    if (strlen(project_name) == 0 || strlen(file) == 0) {
+      wtf_perror(E_IMPROPER_REMOVE_PARAMS, 1);
+    }
+
+    int result = wtf_remove(project_name, file);
+    if (result == 1) {
+      printf("Successfully removed %s from project manifest\n", file);
+      return 0;
+    } else {
+      //Won't ever get here because errors will be handled inside of wtf_add first
+    }
   }
 
   // wtf_connection *connection = wtf_connect();
@@ -181,10 +200,193 @@ int wtf_commit(char *project_name) {
 
   //Most of the error checks are handled inside of fetch_server_manifest and fetch_client_manifest, which is why there aren't any checks above this line
 
-  //Check
+  //Check if there is a NON-EMPTY .Update file
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
 
-  free_manifest(server_manifest);
-  free_manifest(client_manifest);
+  //.Update exists and is non-empty check
+  sprintf(buffer, "%s/.Update", project_name);
+  int n = 0;
+  if (access(buffer, F_OK) != -1) {
+    int fd = open(buffer, O_RDONLY);
+    if (fd <= 0) {
+      free(buffer);
+      wtf_perror(E_CANNOT_READ_UPDATE_FILE, 1);
+    }
+    n = read(fd, buffer, 1);
+    if (n != 0) {
+      close(fd);
+      free(buffer);
+      wtf_perror(E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, 1);
+    }
+  }
+
+  //.Conflict exists check
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "%s/.Conflict", project_name);
+  if (access(buffer, F_OK) != -1) {
+    free(buffer);
+    wtf_perror(E_CANNOT_COMMIT_CONFLICT_EXISTS, 1);
+  }
+
+  //Manifest Version Check
+  if (server_manifest->version_number != client_manifest->version_number) {
+    free(buffer);
+    wtf_perror(E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, 1);
+  }
+
+  //Rehash client's files
+  int i;
+  char *hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+  memset(hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+  for (i = 0; i < client_manifest->file_count; i++) {
+    printf("Old hash: %s\n", client_manifest->files[i]->hash);
+    hash = hash_file(client_manifest->files[i]->file_path);
+    client_manifest->files[i]->new_hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+    memset(client_manifest->files[i]->new_hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+    strncpy(client_manifest->files[i]->new_hash, hash, strlen(hash));
+    printf("New hash: %s\n", client_manifest->files[i]->new_hash);
+
+    //if they are not equal then increment the version number
+    if (strcmp(client_manifest->files[i]->hash, client_manifest->files[i]->new_hash) != 0) client_manifest->files[i]->version_number++;
+  }
+
+  //rewrite client manifest
+  int res = write_manifest(client_manifest);
+  if (res == 0) {
+    free(buffer);
+    free(hash);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    return 0;
+  }
+
+  char *commit_buffer = malloc(500000);
+
+  //Modify Code case: server and client have the same file and same hash, but client new_hash != client hash
+  int j;
+  for (i = 0; i < client_manifest->file_count; i++) {
+    for (j = 0; j < server_manifest->file_count; j++) {
+      printf("here, checkign 256\n");
+      if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+        //Same file, now lets check if hashes are different on client side
+        if (strcmp(client_manifest->files[i]->new_hash, server_manifest->files[j]->hash) != 0) {
+          //Client has different file, now make sure that the client hash == server hash
+          if (strcmp(client_manifest->files[i]->hash, server_manifest->files[j]->hash) == 0) {
+            //This is a match. We need to append a MODIFY opcode to .Commit
+            printf("%c %s\n", OPCODE_MODIFY, client_manifest->files[i]->file_path);
+            sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_MODIFY, client_manifest->files[i]->file_path, server_manifest->files[j]->hash);
+          }
+        }
+      }
+    }
+  }
+
+  //Add Code case: server doesn't have the file but client does
+  int server_has_file;
+  for (i = 0; i < client_manifest->file_count; i++) {
+    server_has_file = 0;
+    for (j = 0; j < server_manifest->file_count; j++) {
+      if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+        server_has_file = 1;
+      }
+    }
+    if (server_has_file == 0) {
+      printf("%c %s\n", OPCODE_ADD, client_manifest->files[i]->file_path);
+      sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_ADD, client_manifest->files[i]->file_path, server_manifest->files[j]->hash);
+    }
+  }
+
+  // free_manifest(server_manifest);
+  // free_manifest(client_manifest);
+}
+
+/**
+ * 
+ * wtf_remove
+ * 
+ * Removes a given file from the project's .Manifest
+ */
+int wtf_remove(char *project_name, char *file) {
+  Manifest *client_manifest = fetch_client_manifest(project_name);
+
+  //Check that the file exists in the manifest
+  int i;
+  int index = -1;  //index where file is in client_manifest->files
+  for (i = 0; i < client_manifest->file_count; i++) {
+    if (strcmp(client_manifest->files[i]->file_path, file) == 0)
+      index = i;
+  }
+  if (index == -1) {
+    //Doesn't exist in manifest
+    free_manifest(client_manifest);
+    wtf_perror(E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, 1);
+  }
+
+  free(client_manifest->files[index]->file_path);
+  write_manifest(client_manifest);
+  free_manifest(client_manifest);  // why does this cause a crash?
+  return 1;
+}
+
+/**
+ * write_manifest
+ * 
+ * Writes out Manifest object to the local .Manifest
+ *  
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int write_manifest(Manifest *manifest) {
+  char *buffer = malloc(500);
+  sprintf(buffer, "%s/.Manifest", manifest->project_name);
+
+  //remove file and create it again. We are going to write out the entire .Manifest anyway
+  remove(buffer);
+  int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd == -1) {
+    wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 0);
+    free(buffer);
+    return 0;
+  }
+
+  //check if we can write
+  int n = write(fd, manifest->project_name, strlen(manifest->project_name));
+  if (n <= 0) {
+    wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 0);
+    free(buffer);
+    return 0;
+  }
+  //write headers
+  memset(buffer, 0, 500);
+  sprintf(buffer, "\n", 1);
+  write(fd, buffer, 1);
+  memset(buffer, 0, 500);
+  sprintf(buffer, "%d", manifest->version_number);
+  write(fd, buffer, strlen(buffer));
+
+  //write all file entries
+  int i;
+  for (i = 0; i < manifest->file_count; i++) {
+    if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
+    //Construct entry string
+    memset(buffer, 0, 500);
+    sprintf(buffer, "\n~ ");
+    if (manifest->files[i]->op_code != OPCODE_NONE) {
+      sprintf(buffer, "%s%c:", buffer, manifest->files[i]->op_code);
+    }
+    sprintf(buffer, "%s%s:%d:%s", buffer, manifest->files[i]->file_path, manifest->files[i]->version_number, manifest->files[i]->hash);
+    if (manifest->files[i]->seen_by_server == 0) {
+      sprintf(buffer, "%s:!", buffer);
+    }
+    sprintf(buffer, "%s", buffer);
+    write(fd, buffer, strlen(buffer));
+  }
+
+  close(fd);
+  free(buffer);
+  return 1;
 }
 
 /**
@@ -377,7 +579,7 @@ Manifest *fetch_client_manifest(char *project_name) {
 
     //We need to check if there is either A/D opcode at the front
     read(manifest_fd, buffer, 2);
-    printf("Starting at %c\n", buffer[0]);
+    // printf("Starting at %c\n", buffer[0]);
     if ((buffer[0] == OPCODE_ADD || buffer[0] == OPCODE_DELETE) && buffer[1] == ':') {
       //There is an op code
       client_manifest->files[j]->op_code = buffer[0];
@@ -414,7 +616,8 @@ Manifest *fetch_client_manifest(char *project_name) {
       read(manifest_fd, buffer, 1);
     }
     // printf("\tHash code: %s\n", builder);
-    client_manifest->files[j]->hash = malloc(strlen(builder));
+    client_manifest->files[j]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+    memset(client_manifest->files[j]->hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
     strcpy(client_manifest->files[j]->hash, builder);
 
     memset(buffer, 0, 200);
@@ -537,7 +740,9 @@ int wtf_add(char *project_name, char *file) {
   //If we have made it here, then we can safely add the new entry to the end of the manifest
 
   memset(buffer, 0, 150);
-  char *hash = hash_file(file);
+  char *hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+  memset(hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+  hash = hash_file(file);
   sprintf(buffer, "\n~ A:%s:%d:%s:%s", file, 1, hash, "!");
   n = write(manifest_fd, buffer, strlen(buffer));
   if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
@@ -568,13 +773,19 @@ char *hash_file(char *path) {
 
   if (cap == 0 && n != 0) wtf_perror(E_FILE_MAX_LENGTH, 0);
 
-  char t_hash[SHA_DIGEST_LENGTH];
-  char *hash = malloc(SHA_DIGEST_LENGTH * 2);
-  SHA1(file_contents_buffer, strlen(file_contents_buffer), t_hash);
-  for (n = 0; n < SHA_DIGEST_LENGTH; n++)
-    sprintf((char *)&(hash[n * 2]), "%02x", t_hash[n]);
+  SHA_CTX ctx;
+  SHA1_Init(&ctx);
+  SHA1_Update(&ctx, file_contents_buffer, strlen(file_contents_buffer));
+  unsigned char tmphash[SHA_DIGEST_LENGTH];
+  memset(tmphash, 0, SHA_DIGEST_LENGTH);
+  SHA1_Final(tmphash, &ctx);
+  int i = 0;
+  unsigned char *hash = malloc((SHA_DIGEST_LENGTH * 2) + 1);
+  memset(hash, 0, SHA_DIGEST_LENGTH * 2);
+  for (i = 0; i < SHA_DIGEST_LENGTH; i++)
 
-  printf("finished hash = %s\n", hash);
+    sprintf((char *)&(hash[i * 2]), "%02x", tmphash[i]);
+
   free(file_contents_buffer);
   free(char_buffer);
   close(file_fd);
@@ -822,6 +1033,7 @@ void free_manifest(Manifest *m) {
   for (i = 0; i < m->file_count; i++) {
     free(m->files[i]->file_path);
     free(m->files[i]->hash);
+    free(m->files[i]->new_hash);
     free(m->files[i]);
   }
   free(m->project_name);

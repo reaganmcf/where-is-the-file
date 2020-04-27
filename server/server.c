@@ -309,7 +309,7 @@ char *wtf_server_get_current_version(char *project_name) {
   memset(ret_string, 0, 500000);
   int file_count = 0;
   char *temp_file_name = malloc(100);
-  char *temp_hash = malloc(300);
+  char *temp_hash = malloc(20 * 2 + 1);  //SHA1 digest length + 1
   int temp_file_version_number = 0;
   while (n != 0) {
     n = read(manifest_fd, buffer, 1);
@@ -331,7 +331,7 @@ char *wtf_server_get_current_version(char *project_name) {
       temp_file_version_number = atoi(t_number);
 
       memset(buffer, 0, 10000);
-      memset(temp_hash, 0, 300);
+      memset(temp_hash, 0, 20 * 2 + 1);
       while (buffer[0] != ':') {
         strncat(temp_hash, buffer, 1);
         n = read(manifest_fd, buffer, 1);

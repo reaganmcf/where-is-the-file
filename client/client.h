@@ -9,6 +9,7 @@
 #define WTF_CONFIGURATION_FILE_PATH "./.configuration"
 #define OPCODE_ADD 'A'
 #define OPCODE_DELETE 'D'
+#define OPCODE_MODIFY 'M'
 #define OPCODE_NONE 'N'
 #define CLIENT 0
 #define SERVER 1
@@ -41,7 +42,13 @@ enum _error_codes {
   E_SERVER_PROJECT_DOESNT_EXIST = 24,
   E_IMPROPER_COMMIT_PARAMS = 25,
   E_IMPROPER_COMMIT_PROJECT_NAME = 26,
-  E_CANNOT_READ_MANIFEST = 27
+  E_CANNOT_READ_MANIFEST = 27,
+  E_CANNOT_READ_UPDATE_FILE = 28,
+  E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS = 29,
+  E_CANNOT_COMMIT_CONFLICT_EXISTS = 30,
+  E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS = 31,
+  E_IMPROPER_REMOVE_PARAMS = 32,
+  E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST = 33
 };
 
 typedef enum _error_codes wtf_error;
@@ -77,7 +84,13 @@ struct _error_desc {
     {E_SERVER_PROJECT_DOESNT_EXIST, "Provided project name doesn't exist on the server."},
     {E_IMPROPER_COMMIT_PARAMS, "Improper params for commit command. Please follow the format of ./WTF commit <project-name>"},
     {E_IMPROPER_COMMIT_PROJECT_NAME, "Improper project name provided for commit. Project names cannot contain ':'"},
-    {E_CANNOT_READ_MANIFEST, "Improper permissions to read .Manifest"}
+    {E_CANNOT_READ_MANIFEST, "Improper permissions to read .Manifest"},
+    {E_CANNOT_READ_UPDATE_FILE, "Improper permissions to read .Update"},
+    {E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, "Unable to commit because non-empty .Update exists. Please update the project first."},
+    {E_CANNOT_COMMIT_CONFLICT_EXISTS, "Unable to commit because .Conflict exists"},
+    {E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, "Unable to commit because server .Manifest and client .Manifest have mismatched version numbers. Please update your local project first"},
+    {E_IMPROPER_REMOVE_PARAMS, "Improper params for remove command. Please follow the format of ./WTF remove <project-name> <file-path>"},
+    {E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, "Provided file path doesn't exist in the project's Manifest"}
 
 };
 
@@ -96,6 +109,7 @@ typedef struct _manifest_file {
   char *file_path;
   int version_number;
   char *hash;
+  char *new_hash;  //used when commiting
   int seen_by_server;
 } ManifestFileEntry;
 
@@ -139,6 +153,12 @@ Manifest *fetch_server_manifest(char *);
 
 //Function Prototype for fetching the client .Manifest and populating Manifest struct
 Manifest *fetch_client_manifest(char *);
+
+//Function Prototype for writing out Manifest object to .Manifest
+int write_manifest(Manifest *);
+
+//Function Prototype for removing entry from .Manifest
+int wtf_remove(char *, char *);
 
 //Function Prototype for printing Manifest out as string
 void print_manifest(Manifest *, int, int);
