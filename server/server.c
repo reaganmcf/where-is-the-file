@@ -115,6 +115,7 @@ void *wtf_process(void *pointer) {
     read(connection->socket, buffer, len);
     printf("%d.%d.%d.%d: %s\n", (addr)&0xFF, (addr >> 8) & 0xFF, (addr >> 16) & 0xFF, (addr >> 24) & 0xFF, buffer);
   }
+  if (len == 0) pthread_exit(0);
 
   //Handle message sanitization and routing here
   int command_size = atoi(buffer);
@@ -123,6 +124,7 @@ void *wtf_process(void *pointer) {
     buffer++;
   buffer++;
   char *command = malloc(command_size + 1);
+  memset(command, 0, command_size + 1);
   command = strncpy(command, buffer, command_size);
   printf("\tcommand = %s\n", command);
   //advance buffer to char after next ':'
@@ -183,6 +185,7 @@ void *wtf_process(void *pointer) {
     char *commit_buffer = malloc(commit_buffer_size);
     strncpy(commit_buffer, buffer, commit_buffer_size);
     int status = wtf_server_write_commit(project_name, commit_buffer);
+    write(connection->socket, status + 100, 3);
 
     //free
     free(project_name);
@@ -193,6 +196,7 @@ void *wtf_process(void *pointer) {
   close(connection->socket);
   free(connection);
   free(command);
+  len = 0;
   printf("\tFinished\n");
   pthread_exit(0);
 }
@@ -213,10 +217,10 @@ int wtf_server_write_commit(char *project_name, char *commit) {
   char *buffer = malloc(1000);
   memset(buffer, 0, 1000);
   sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit));
-  printf("Attemtping to write %s\n", buffer);
+  printf("\tAttemtping to write %s\n", buffer);
 
   if (access(buffer, F_OK) != -1) {
-    printf("\tFile already exists. No need to write again");
+    printf("\tFile already exists. No need to write again\n");
     return 1;
   }
 

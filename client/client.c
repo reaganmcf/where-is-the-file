@@ -140,6 +140,9 @@ int main(int argc, char **argv) {
 
     //All ready, create a connection handler and call server
     int result = wtf_commit(project_name);
+    if (result == 1) {
+      return 0;
+    }
   } else if (strcmp(command, "remove") == 0) {
     //Check for params
     if (argc != 4) {
@@ -353,7 +356,17 @@ int wtf_commit(char *project_name) {
     }
   }
 
-  printf("commit buffer finished. \n%s\n", commit_buffer);
+  //Nothing to commit
+  if (strlen(commit_buffer) == 0) {
+    printf("Nothing to commit\n");
+    free(commit_buffer);
+    free(buffer);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    close(connection->socket);
+    free(connection);
+    return 1;
+  }
 
   //Write .Commit
   memset(buffer, 0, 1000);
@@ -383,17 +396,19 @@ int wtf_commit(char *project_name) {
   //.Commit written, send it to the server
   char *server_buffer = malloc(500200);
   sprintf(server_buffer, "%d:%s:%d:%s:%d:%s", strlen(COMMAND_CREATE_COMMIT), COMMAND_CREATE_COMMIT, strlen(project_name), project_name, strlen(commit_buffer), commit_buffer);
-  printf("Attempting to send (%d) bytes to the server\n", server_buffer, strlen(server_buffer));
+  printf("Attempting to send (%d) bytes to the server\n", strlen(server_buffer));
   int msg_size = strlen(server_buffer) + 1;
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, server_buffer, strlen(server_buffer) + 1);
   memset(buffer, 0, 1000);
   n = read(connection->socket, buffer, 4);
+  printf("return buffer is %s\n", buffer);
   int ret_status = atoi(buffer);
   if (ret_status == 101) {
     printf("Successfully sent .Commit to the Server\n");
   } else {
     //error checks handling here
+    wtf_perror(E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
   }
 
   //free and return
@@ -402,6 +417,9 @@ int wtf_commit(char *project_name) {
   free_manifest(server_manifest);
   free_manifest(client_manifest);
   close(fd);
+  close(connection->socket);
+  free(connection);
+  free(server_buffer);
   return 1;
 }
 
@@ -429,7 +447,7 @@ int wtf_remove(char *project_name, char *file) {
 
   free(client_manifest->files[index]->file_path);
   write_manifest(client_manifest);
-  free_manifest(client_manifest);  // why does this cause a crash?
+  //free_manifest(client_manifest);  // why does this cause a crash?
   return 1;
 }
 
