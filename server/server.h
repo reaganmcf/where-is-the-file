@@ -9,6 +9,7 @@
 //Possible Command Strings for the Server
 const char *COMMAND_CREATE_PROJECT = "create_project";
 const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
+const char *COMMAND_CREATE_COMMIT = "create_commit";
 
 //Possible Error Codes for the Server
 enum _error_codes {
@@ -19,7 +20,8 @@ enum _error_codes {
   E_CANNOT_READ_OR_WRITE_PROJECT_DIR = 5,
   E_PROJECT_ALREADY_EXISTS = 6,
   E_PROJECT_DOESNT_EXIST = 7,
-  E_CANNOT_INIT_MUTEX = 8
+  E_CANNOT_INIT_MUTEX = 8,
+  E_CANNOT_READ_OR_WRITE_NEW_COMMIT = 9
 };
 
 typedef enum _error_codes wtf_error;
@@ -36,7 +38,8 @@ struct _error_desc {
     {E_CANNOT_READ_OR_WRITE_PROJECT_DIR, "Unable to read or write to ./Manifests/ directory."},
     {E_PROJECT_ALREADY_EXISTS, "Project already exists with this name."},
     {E_PROJECT_DOESNT_EXIST, "Project doesn't exist on the server."},
-    {E_CANNOT_INIT_MUTEX, "Cannot Initialize mutex lock."}
+    {E_CANNOT_INIT_MUTEX, "Cannot Initialize mutex lock."},
+    {E_CANNOT_READ_OR_WRITE_NEW_COMMIT, "Unable to read new .Commit to the project directory. Please check your permissions to this directory"}
 
 };
 
@@ -61,6 +64,12 @@ char *wtf_server_get_current_version(char *project_name);
 
 //Function Prototype for printing custom errors
 void wtf_perror(wtf_error e, int should_exit);
+
+//Function Prototype for writing incoming .Commit
+int wtf_server_write_commit(char *, char *);
+
+//Function Prototype for hashing string helper function
+char *hash_string(char *);
 
 //Function Prototype for checking if path is a regular file
 int isRegFile(const char *path);

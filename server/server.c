@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <linux/in.h>
+#include <openssl/sha.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,6 +110,7 @@ void *wtf_process(void *pointer) {
   if (len > 0) {
     addr = (long)((struct sockaddr_in *)&connection->address)->sin_addr.s_addr;
     buffer = malloc((len + 1) * sizeof(char));
+    memset(buffer, 0, len + 1);
     buffer[len] = 0;
     read(connection->socket, buffer, len);
     printf("%d.%d.%d.%d: %s\n", (addr)&0xFF, (addr >> 8) & 0xFF, (addr >> 16) & 0xFF, (addr >> 24) & 0xFF, buffer);
@@ -144,6 +146,7 @@ void *wtf_process(void *pointer) {
     sprintf(ret_buffer, "%d", (status + 1) + 100);
     printf("\tSending back {%s} to the client\n", ret_buffer);
     write(connection->socket, ret_buffer, 5);
+    free(project_name);
   } else if (strcmp(command, COMMAND_CURRENT_VERSION_PROJECT) == 0) {
     //Current Version (of a Project) command
 
@@ -163,14 +166,78 @@ void *wtf_process(void *pointer) {
     write(connection->socket, ret, strlen(ret));
     memset(ret, 0, 500000);
     free(ret);
+    free(project_name);
+  } else if (strcmp(command, COMMAND_CREATE_COMMIT) == 0) {
+    //Write incoming .Commit
+    //Extract byte_size
+    int project_name_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *project_name = malloc(project_name_size + 1);
+    strncpy(project_name, buffer, project_name_size);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    int commit_buffer_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *commit_buffer = malloc(commit_buffer_size);
+    strncpy(commit_buffer, buffer, commit_buffer_size);
+    int status = wtf_server_write_commit(project_name, commit_buffer);
+
+    //free
+    free(project_name);
+    free(commit_buffer);
   }
 
   //Close socket and cleanup
   close(connection->socket);
   free(connection);
   free(command);
-  // free(buffer);
+  printf("\tFinished\n");
   pthread_exit(0);
+}
+
+/**
+ * wtf_server_write_commit
+ * 
+ * Handler for create_commit directive
+ * 
+ * Takes incoming commit buffer and writes it out a .Commit in the project dir.
+ * 
+ * Returns
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_server_write_commit(char *project_name, char *commit) {
+  //We need to hash the contents of the commit
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit));
+  printf("Attemtping to write %s\n", buffer);
+
+  if (access(buffer, F_OK) != -1) {
+    printf("\tFile already exists. No need to write again");
+    return 1;
+  }
+
+  int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd == -1) {
+    free(buffer);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
+    return 0;
+  }
+  int n = write(fd, commit, strlen(commit));
+  if (n <= 0) {
+    free(buffer);
+    close(fd);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
+    return 0;
+  }
+  printf("\tSuccessfully created new .Commit\n");
+
+  free(buffer);
+  close(fd);
+  return 1;
 }
 
 /**
@@ -386,6 +453,35 @@ void wtf_perror(wtf_error e, int should_exit) {
   }
 }
 
+/**
+ * hash_string
+ * 
+ * Hashes the given string and returns a string of length SHA_DIGEST_LENGTH * 2 + 1 containing the hash string
+ * 
+ */
+char *hash_string(char *string) {
+  SHA_CTX ctx;
+  SHA1_Init(&ctx);
+  SHA1_Update(&ctx, string, strlen(string));
+  unsigned char tmphash[SHA_DIGEST_LENGTH];
+  memset(tmphash, 0, SHA_DIGEST_LENGTH);
+  SHA1_Final(tmphash, &ctx);
+  int i = 0;
+  unsigned char *hash = malloc((SHA_DIGEST_LENGTH * 2) + 1);
+  memset(hash, 0, SHA_DIGEST_LENGTH * 2);
+  for (i = 0; i < SHA_DIGEST_LENGTH; i++) {
+    sprintf((char *)&(hash[i * 2]), "%02x", tmphash[i]);
+  }
+
+  return hash;
+}
+
+/**
+ * 
+ * isRegFile
+ * 
+ * checks if the path provided is pointing to a normal file and not a directory
+ */
 int isRegFile(const char *path) {
   struct stat statbuf;
 

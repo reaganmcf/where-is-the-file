@@ -198,6 +198,8 @@ int wtf_commit(char *project_name) {
   printf("\n");
   print_manifest(client_manifest, CLIENT, 1);
 
+  wtf_connection *connection = wtf_connect();
+
   //Most of the error checks are handled inside of fetch_server_manifest and fetch_client_manifest, which is why there aren't any checks above this line
 
   //Check if there is a NON-EMPTY .Update file
@@ -213,6 +215,8 @@ int wtf_commit(char *project_name) {
       free(buffer);
       free(client_manifest);
       free(server_manifest);
+      close(connection->socket);
+      free(connection);
       wtf_perror(E_CANNOT_READ_UPDATE_FILE, 1);
     }
     n = read(fd, buffer, 1);
@@ -221,6 +225,8 @@ int wtf_commit(char *project_name) {
       free(buffer);
       free(client_manifest);
       free(server_manifest);
+      close(connection->socket);
+      free(connection);
       wtf_perror(E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, 1);
     }
   }
@@ -232,6 +238,8 @@ int wtf_commit(char *project_name) {
     free(buffer);
     free(client_manifest);
     free(server_manifest);
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_COMMIT_CONFLICT_EXISTS, 1);
   }
 
@@ -240,6 +248,8 @@ int wtf_commit(char *project_name) {
     free(buffer);
     free(client_manifest);
     free(server_manifest);
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, 1);
   }
 
@@ -264,6 +274,8 @@ int wtf_commit(char *project_name) {
   if (res == 0) {
     free(buffer);
     free(hash);
+    close(connection->socket);
+    free(connection);
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     return 0;
@@ -285,6 +297,8 @@ int wtf_commit(char *project_name) {
             free(buffer);
             free_manifest(server_manifest);
             free_manifest(client_manifest);
+            close(connection->socket);
+            free(connection);
             wtf_perror(E_CANNOT_COMMIT_MUST_SYNCH_FIRST, 1);
           }
         }
@@ -348,6 +362,8 @@ int wtf_commit(char *project_name) {
   if (fd == -1) {
     free(buffer);
     free(commit_buffer);
+    close(connection->socket);
+    free(connection);
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     wtf_perror(E_CANNOT_WRITE_COMMIT, 1);
@@ -356,10 +372,28 @@ int wtf_commit(char *project_name) {
   if (n <= 0) {
     free(buffer);
     free(commit_buffer);
+    close(connection->socket);
+    free(connection);
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     close(fd);
     wtf_perror(E_CANNOT_WRITE_COMMIT, 1);
+  }
+
+  //.Commit written, send it to the server
+  char *server_buffer = malloc(500200);
+  sprintf(server_buffer, "%d:%s:%d:%s:%d:%s", strlen(COMMAND_CREATE_COMMIT), COMMAND_CREATE_COMMIT, strlen(project_name), project_name, strlen(commit_buffer), commit_buffer);
+  printf("Attempting to send (%d) bytes to the server\n", server_buffer, strlen(server_buffer));
+  int msg_size = strlen(server_buffer) + 1;
+  write(connection->socket, &msg_size, sizeof(int));
+  write(connection->socket, server_buffer, strlen(server_buffer) + 1);
+  memset(buffer, 0, 1000);
+  n = read(connection->socket, buffer, 4);
+  int ret_status = atoi(buffer);
+  if (ret_status == 101) {
+    printf("Successfully sent .Commit to the Server\n");
+  } else {
+    //error checks handling here
   }
 
   //free and return
@@ -857,7 +891,6 @@ char *hash_file(char *path) {
   unsigned char *hash = malloc((SHA_DIGEST_LENGTH * 2) + 1);
   memset(hash, 0, SHA_DIGEST_LENGTH * 2);
   for (i = 0; i < SHA_DIGEST_LENGTH; i++)
-
     sprintf((char *)&(hash[i * 2]), "%02x", tmphash[i]);
 
   free(file_contents_buffer);

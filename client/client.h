@@ -14,6 +14,11 @@
 #define CLIENT 0
 #define SERVER 1
 
+//Possible Command Strings for the Server
+const char *COMMAND_CREATE_PROJECT = "create_project";
+const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
+const char *COMMAND_CREATE_COMMIT = "create_commit";
+
 //Possible Error Codes for the Client
 enum _error_codes {
   E_INVALID_CONFIGURATION = 1,
