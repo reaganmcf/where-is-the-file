@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <zlib.h>
 
 /** WTF Client
  * 
@@ -189,6 +190,8 @@ int main(int argc, char **argv) {
     } else {
       //Wont ever get here because errors will be handled inside of wtf_push first
     }
+  } else {
+    wtf_perror(E_NO_COMMAND_PROVIDED, 1);
   }
 
   // wtf_connection *connection = wtf_connect();
@@ -215,8 +218,127 @@ static void wtf_exit_handler(void) {
  * We need to check if we have a .Commit, if we can establish a valid wtf_connection, and the project exists on the server
  * 
  */
-int wtf_push(char* project_name) {
-  
+int wtf_push(char *project_name) {
+  //First we need to fetch the server .Manifest (this will check if the project exists on the server
+  //We also want to fetch the client .Manifest because we need to use it later
+  Manifest *server_manifest = fetch_server_manifest(project_name);
+  Manifest *client_manifest = fetch_client_manifest(project_name);
+
+  //Check if we have a .Commit on client
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "%s/.Commit", project_name);
+  if (access(buffer, F_OK) != 0) {
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    free(buffer);
+    wtf_perror(E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT, 1);
+  }
+
+  char *commit_buffer = malloc(10000);
+  memset(commit_buffer, 0, 10000);
+  int commit_fd = open(buffer, O_RDONLY);
+  if (commit_fd < 0) {
+    free_manifest(client_manifest);
+    free_manifest(server_manifest);
+    free(buffer);
+    free(commit_buffer);
+    wtf_perror(E_CANNOT_READ_COMMIT, 1);
+  }
+
+  int n = read(commit_fd, buffer, 1);
+  if (n != 1) {
+    free_manifest(client_manifest);
+    free_manifest(server_manifest);
+    free(buffer);
+    free(commit_buffer);
+    close(commit_fd);
+    wtf_perror(E_CANNOT_READ_COMMIT, 1);
+  }
+  while (n != 0) {
+    sprintf(commit_buffer, "%s%c", commit_buffer, buffer[0]);
+    n = read(commit_fd, buffer, 1);
+  }
+  close(commit_fd);
+  printf("commit buffer loaded %s\n", commit_buffer);
+
+  //Go over all of the files that were A opcode's and add them to the file_buffer which we will compress later
+  int i;
+  int fd = 0;
+  char *file_buffer = malloc(1000000);
+  char *mid_buffer = malloc(10000);
+  memset(mid_buffer, 0, 10000);
+  int t_size = 0;
+  int total_files_to_send = 0;
+  memset(buffer, 0, 1000);
+  for (i = 0; i < strlen(commit_buffer) - 1; i++) {
+    t_size = 0;
+    memset(mid_buffer, 0, 10000);
+    memset(buffer, 0, 1000);
+    if (commit_buffer[i] == 'A' && commit_buffer[i + 1] == ' ') {
+      total_files_to_send++;
+      i += 2;
+      while (commit_buffer[i] != ' ') {
+        sprintf(buffer, "%s%c", buffer, commit_buffer[i]);
+        i++;
+      }
+      printf("we need to add file name: %s\n", buffer);
+      strcat(file_buffer, buffer);
+      strcat(file_buffer, ":");
+      fd = open(buffer, O_RDONLY);
+      if (fd == -1) {
+        free(file_buffer);
+        free(mid_buffer);
+        free_manifest(client_manifest);
+        free_manifest(server_manifest);
+        free(buffer);
+        free(commit_buffer);
+        wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, 1);
+      }
+
+      n = read(fd, mid_buffer, 1);
+      if (n != 1) {
+        free(file_buffer);
+        free(mid_buffer);
+        free_manifest(client_manifest);
+        free_manifest(server_manifest);
+        free(buffer);
+        free(commit_buffer);
+        wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, 1);
+      }
+
+      while (n != 0) {
+        sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
+        t_size++;
+        n = read(fd, buffer, 1);
+      }
+
+      close(fd);
+
+      //finished reading file here
+      sprintf(file_buffer, "%s%d:", file_buffer, t_size);
+      strcat(file_buffer, mid_buffer);
+      strcat(file_buffer, "\n");
+    }
+  }
+
+  // printf("file buffer is finished here %s\n", file_buffer);
+
+  //combine commit buffer and file buffer
+  char *final_buffer = malloc(1000000);
+  memset(final_buffer, 0, 1000000);
+  //command_length:command_name:project_length:project_name:commit_length:commit_string:file_buffer_length:file_buffer
+  sprintf(final_buffer, "%d:%s:%d:%s:%d:%s:%d:%s", strlen(COMMAND_CREATE_PUSH), COMMAND_CREATE_PUSH, strlen(project_name), project_name, strlen(commit_buffer), commit_buffer, strlen(file_buffer), file_buffer);
+  printf("final buffer is %s\n", final_buffer);
+
+  //establish connection
+  wtf_connection *connection = wtf_connect();
+
+  //write buffer to server
+  printf("Sending %s (%d) bytes to the server\n", COMMAND_CREATE_PUSH, strlen(final_buffer));
+  int msg_size = strlen(final_buffer) + 1;
+  write(connection->socket, &msg_size, sizeof(int));
+  write(connection->socket, final_buffer, strlen(final_buffer));
 }
 
 /**

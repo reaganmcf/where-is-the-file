@@ -190,6 +190,38 @@ void *wtf_process(void *pointer) {
     free(status);
     free(project_name);
     free(commit_buffer);
+  } else if (strcmp(command, COMMAND_CREATE_PUSH) == 0) {
+    //Handle incoming commit
+
+    int project_name_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *project_name = malloc(project_name_size + 1);
+    strncpy(project_name, buffer, project_name_size);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    int commit_buffer_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *commit_buffer = malloc(commit_buffer_size);
+    strncpy(commit_buffer, buffer, commit_buffer_size);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    int file_buffer_length = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *file_buffer = malloc(file_buffer_length);
+    strncpy(file_buffer, buffer, file_buffer_length);
+
+    printf("\tProject_name = %s\n", project_name);
+    printf("\tCommit buffer = %s\n", commit_buffer);
+    printf("\tFile buffer = %s\n", file_buffer);
+
+    char *ret = wtf_server_push(project_name, commit_buffer, file_buffer);
+
+    free(project_name);
+    free(commit_buffer);
+    free(file_buffer);
   }
 
   //Close socket and cleanup
@@ -199,6 +231,36 @@ void *wtf_process(void *pointer) {
   len = 0;
   printf("\tFinished\n");
   pthread_exit(0);
+}
+
+/**
+ * wtf_server_push
+ * 
+ * Handler for push directive
+ */
+char *wtf_server_push(char *project_name, char *commit_contents, char *files_string) {
+  char *buffer = malloc(1000);
+  char *buff = malloc(4);
+  memset(buffer, 0, 4);
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit_contents));
+  printf("\tChecking if commit doesn't exist\n");
+
+  //lock repo
+  pthread_mutex_lock(&lock);
+
+  if (access(buffer, F_OK) == -1) {
+    printf("\tCommit doesn't exist, can't push\n");
+    sprintf(buff, "101");
+    pthread_mutex_unlock(&lock);
+    return buff;
+  }
+
+  //expire all other commits
+
+  free(buffer);
+  pthread_mutex_unlock(&lock);
+  return buff;
 }
 
 /**

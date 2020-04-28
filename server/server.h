@@ -10,6 +10,7 @@
 const char *COMMAND_CREATE_PROJECT = "create_project";
 const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 const char *COMMAND_CREATE_COMMIT = "create_commit";
+const char *COMMAND_CREATE_PUSH = "create_push";
 
 //Possible Error Codes for the Server
 enum _error_codes {
@@ -67,6 +68,9 @@ void wtf_perror(wtf_error e, int should_exit);
 
 //Function Prototype for writing incoming .Commit
 char *wtf_server_write_commit(char *, char *);
+
+//Function Prototype for handling push
+char *wtf_server_push(char *, char *, char *);
 
 //Function Prototype for hashing string helper function
 char *hash_string(char *);

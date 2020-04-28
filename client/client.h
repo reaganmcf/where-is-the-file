@@ -18,6 +18,7 @@
 const char *COMMAND_CREATE_PROJECT = "create_project";
 const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 const char *COMMAND_CREATE_COMMIT = "create_commit";
+const char *COMMAND_CREATE_PUSH = "create_push";
 
 //Possible Error Codes for the Client
 enum _error_codes {
@@ -58,7 +59,11 @@ enum _error_codes {
   E_CANNOT_WRITE_COMMIT = 35,
   E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT = 36,
   E_IMPROPER_PUSH_PARAMS = 37,
-  E_IMPROPER_PUSH_PROJECT_NAME = 38
+  E_IMPROPER_PUSH_PROJECT_NAME = 38,
+  E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT = 39,
+  E_CANNOT_READ_COMMIT = 40,
+  E_CANNOT_READ_FILES_IN_COMMIT = 41,
+  E_NO_COMMAND_PROVIDED = 42
 };
 
 typedef enum _error_codes wtf_error;
@@ -105,7 +110,11 @@ struct _error_desc {
     {E_CANNOT_WRITE_COMMIT, "Improper permissions to write to .Commit"},
     {E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, "Unable to read new .Commit to the project directory. Please check your permissions to this directory"},
     {E_IMPROPER_PUSH_PARAMS, "Improper params for push command. Please follow the format of ./WTF push <project-name>"},
-    {E_IMPROPER_PUSH_PROJECT_NAME, "Improper project name provided for currentversion. Project names cannot contain ':'."}
+    {E_IMPROPER_PUSH_PROJECT_NAME, "Improper project name provided for currentversion. Project names cannot contain ':'."},
+    {E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT, "Unable to push because client does not have a .Commit. Please run ./WTF commit <project-name> first."},
+    {E_CANNOT_READ_COMMIT, "Improper permissions to read .Commit"},
+    {E_CANNOT_READ_FILES_IN_COMMIT, "Unable to read files listed in the .Commit"},
+    {E_NO_COMMAND_PROVIDED, "Provided input params didn't match any command patterns. Please enter a valid command according to the README"}
 
 };
 
@@ -183,6 +192,8 @@ void print_manifest(Manifest *, int, int);
 
 //Function Prototype for freeing Manifest
 void free_manifest(Manifest *);
+
+//Function Prototy
 
 //Function Prototype for hashing a file helper function
 char *hash_file(char *path);
