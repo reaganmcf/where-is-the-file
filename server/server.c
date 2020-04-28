@@ -77,8 +77,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  pthread_mutex_destroy(&lock);
-
   return 0;
 }
 
@@ -91,6 +89,7 @@ int main(int argc, char **argv) {
 static void wtf_server_exit_handler(void) {
   printf("Handling exit safely. Freeing alloc'd memory...\n");
   close(SOCKET_FD);
+  pthread_mutex_destroy(&lock);
   printf("Successfully handled exit.\n");
 }
 
@@ -184,10 +183,11 @@ void *wtf_process(void *pointer) {
     buffer++;
     char *commit_buffer = malloc(commit_buffer_size);
     strncpy(commit_buffer, buffer, commit_buffer_size);
-    int status = wtf_server_write_commit(project_name, commit_buffer);
-    write(connection->socket, status + 100, 3);
+    char *status = wtf_server_write_commit(project_name, commit_buffer);
+    write(connection->socket, status, 3);
 
     //free
+    free(status);
     free(project_name);
     free(commit_buffer);
   }
@@ -212,36 +212,42 @@ void *wtf_process(void *pointer) {
  *  0 = Failure
  *  1 = Success
  */
-int wtf_server_write_commit(char *project_name, char *commit) {
+char *wtf_server_write_commit(char *project_name, char *commit) {
   //We need to hash the contents of the commit
   char *buffer = malloc(1000);
+  char *buff = malloc(4);
+  memset(buff, 0, 4);
   memset(buffer, 0, 1000);
   sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit));
   printf("\tAttemtping to write %s\n", buffer);
 
   if (access(buffer, F_OK) != -1) {
     printf("\tFile already exists. No need to write again\n");
-    return 1;
+    sprintf(buff, "101");
+    return buff;
   }
 
   int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
   if (fd == -1) {
     free(buffer);
     wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
-    return 0;
+    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_NEW_COMMIT);
+    return buff;
   }
   int n = write(fd, commit, strlen(commit));
   if (n <= 0) {
     free(buffer);
     close(fd);
     wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
-    return 0;
+    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_NEW_COMMIT);
+    return buff;
   }
   printf("\tSuccessfully created new .Commit\n");
 
   free(buffer);
   close(fd);
-  return 1;
+  sprintf(buff, "%d", 101);
+  return buff;
 }
 
 /**
@@ -370,8 +376,9 @@ char *wtf_server_get_current_version(char *project_name) {
   }
   memset(buffer, 0, 10000);
   char *t_number = malloc(100);
+  memset(t_number, 0, 100);
   while (buffer[0] != '\n' && n != 0) {
-    strncat(t_number, buffer, 1);
+    sprintf(t_number, "%s%c", t_number, buffer[0]);
     n = read(manifest_fd, buffer, 1);
   }
   int project_version = atoi(t_number);

@@ -66,7 +66,7 @@ char *wtf_server_get_current_version(char *project_name);
 void wtf_perror(wtf_error e, int should_exit);
 
 //Function Prototype for writing incoming .Commit
-int wtf_server_write_commit(char *, char *);
+char *wtf_server_write_commit(char *, char *);
 
 //Function Prototype for hashing string helper function
 char *hash_string(char *);
