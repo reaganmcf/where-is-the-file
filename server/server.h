@@ -76,6 +76,6 @@ char *wtf_server_push(char *, char *, char *);
 char *hash_string(char *);
 
 //Function Prototype for checking if path is a regular file
-int isRegFile(const char *path);
+int isRegFile(char *path);
 
 #endif

@@ -240,15 +240,21 @@ void *wtf_process(void *pointer) {
  */
 char *wtf_server_push(char *project_name, char *commit_contents, char *files_string) {
   char *buffer = malloc(1000);
+  char *mid_buffer = malloc(1000);
+  char *target_commit_file_name = malloc(500);
   char *buff = malloc(4);
   memset(buffer, 0, 4);
   memset(buffer, 0, 1000);
-  sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit_contents));
+  memset(mid_buffer, 0, 1000);
+  memset(target_commit_file_name, 0, 500);
+  sprintf(target_commit_file_name, ".Commit_%s", hash_string(commit_contents));
+  sprintf(buffer, "./Projects/%s/%s", project_name, target_commit_file_name);
   printf("\tChecking if commit doesn't exist\n");
 
   //lock repo
   pthread_mutex_lock(&lock);
 
+  printf("\tServer should have %s\n", target_commit_file_name);
   if (access(buffer, F_OK) == -1) {
     printf("\tCommit doesn't exist, can't push\n");
     sprintf(buff, "101");
@@ -257,7 +263,100 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   }
 
   //expire all other commits
+  DIR *d;
+  struct dirent *dir;
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "./Projects/%s", project_name);
+  d = opendir(buffer);
+  int name_exists = 0;
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      memset(buffer, 0, 1000);
+      sprintf(mid_buffer, "./Projects/%s/%s", project_name, dir->d_name);
+      memset(buffer, 0, 1000);
+      if (isRegFile(mid_buffer)) {
+        memset(buffer, 0, 1000);
+        strncpy(buffer, dir->d_name, strlen(".Commit"));
+        if (strcmp(buffer, ".Commit") == 0 && strcmp(dir->d_name, target_commit_file_name) != 0) {
+          printf("\tShould expire %s\n", dir->d_name);
+          remove(mid_buffer);
+        }
+      }
+    }
+    closedir(d);
+  } else {
+    free(mid_buffer);
+    free(buffer);
+    pthread_mutex_unlock(&lock);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+  }
 
+  //Fetch version number of the current repository
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "./Projects/%s/.Manifest", project_name);
+  int fd = open(buffer, O_RDONLY);
+  if (fd == -1) {
+    free(mid_buffer);
+    free(buffer);
+    pthread_mutex_unlock(&lock);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+  }
+
+  memset(buffer, 0, 1000);
+  int n = read(fd, buffer, 1);
+  if (n != 1) {
+    free(mid_buffer);
+    free(buffer);
+    pthread_mutex_unlock(&lock);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+  }
+  while (buffer[0] != '\n') {
+    n = read(fd, buffer, 1);
+  }
+  read(fd, buffer, 1);
+  memset(mid_buffer, 0, 1000);
+  while (buffer[0] != '\n') {
+    sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
+    n = read(fd, buffer, 1);
+  }
+  printf("mid_buffer = %s\n", mid_buffer);
+  int version_number = atoi(mid_buffer);
+  close(fd);
+  memset(buffer, 0, 1000);
+  memset(mid_buffer, 0, 1000);
+
+  //Now that all other commits are expired, lets duplicate the repo and append the version number to it so we can still access it later in rollback
+
+  //Duplicate repo
+  sprintf(buffer, "cp -R ./Projects/%s/ ./Projects/%s_%d", project_name, project_name, version_number);
+  printf("%s\n", buffer);
+  system(buffer);
+
+  //Tar copy
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "tar -cf ./Projects/%s_%d.gz ./Projects/%s_%d", project_name, version_number, project_name, version_number);
+  printf("%s\n", buffer);
+  system(buffer);
+
+  //Remove copy
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "rm -r ./Projects/%s_%d", project_name, version_number);
+  printf("%s\n", buffer);
+  system(buffer);
+
+  //Move tar back into project dir
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "mv ./Projects/%s_%d.gz ./Projects/%s/", project_name, version_number, project_name, project_name);
+  printf("%s\n", buffer);
+  system(buffer);
+
+  //Now that copy is made, read over commit messaage and apply changes
+  
+
+  free(mid_buffer);
   free(buffer);
   pthread_mutex_unlock(&lock);
   return buff;
@@ -555,7 +654,7 @@ char *hash_string(char *string) {
  * 
  * checks if the path provided is pointing to a normal file and not a directory
  */
-int isRegFile(const char *path) {
+int isRegFile(char *path) {
   struct stat statbuf;
 
   if (stat(path, &statbuf) != 0) {
