@@ -69,6 +69,13 @@ typedef struct _manifest {
   ManifestFileEntry **new_files;
 } Manifest;
 
+//Struct for handling complicated commit operations
+typedef struct _commit_op {
+  char op_code;
+  char *file_path;
+  char *contents;
+} CommitOperation;
+
 //connection struct
 typedef struct
 {

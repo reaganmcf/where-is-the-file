@@ -296,7 +296,8 @@ int wtf_push(char *project_name) {
         wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, 1);
       }
 
-      n = read(fd, mid_buffer, 1);
+      n = read(fd, buffer, 1);
+      memset(mid_buffer, 0, 10000);
       if (n != 1) {
         free(file_buffer);
         free(mid_buffer);

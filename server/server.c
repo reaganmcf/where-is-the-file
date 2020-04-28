@@ -321,7 +321,60 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   printf("%s\n", buffer);
   system(buffer);
 
-  //Now that copy is made, read over commit messaage and apply changes
+  //Now that copy is made, read over commit message and construct message out of it
+
+  int i = 0;
+  int j = 0;
+  char opcode;
+  char *commit_copy = malloc(strlen(commit_contents) + 1);
+  char *files_copy = malloc(strlen(files_string) + 1);
+  strcpy(commit_copy, commit_contents);
+  strcpy(files_copy, files_string);
+  int commit_op_count = 0;
+  CommitOperation **commit_ops = malloc(sizeof(CommitOperation *) * 1000);
+
+  while (commit_copy[0] != 0) {
+    if (commit_copy[0] == OPCODE_ADD || commit_copy[0] == OPCODE_DELETE || commit_copy[0] == OPCODE_MODIFY) {
+      opcode = commit_copy[0];
+      if (commit_copy[1] == ' ') {
+        //entry starts here
+        commit_copy += 2;
+        commit_ops[commit_op_count] = malloc(sizeof(CommitOperation));
+        commit_ops[commit_op_count]->op_code = opcode;
+        memset(buffer, 0, 1000);
+        while (commit_copy[0] != ' ') {
+          sprintf(buffer, "%s%c", buffer, commit_copy[0]);
+          commit_copy++;
+        }
+        commit_ops[commit_op_count]->file_path = malloc(strlen(buffer) + 1);
+        strcpy(commit_ops[commit_op_count]->file_path, buffer);
+
+        files_copy += strlen(commit_ops[commit_op_count]->file_path) + 1;  //advance files string until number designating length of file contents
+        memset(buffer, 0, 1000);
+        while (files_copy[0] != ':') {
+          sprintf(buffer, "%s%c", buffer, files_copy[0]);
+          files_copy++;
+        }
+        files_copy++;
+        int file_contents_length = atoi(buffer);
+        commit_ops[commit_op_count]->contents = malloc(file_contents_length);
+        memset(commit_ops[commit_op_count]->contents, 0, file_contents_length);
+        for (i = 0; i < file_contents_length; i++) {
+          sprintf(commit_ops[commit_op_count]->contents, "%s%c", commit_ops[commit_op_count]->contents, files_copy[0]);
+          files_copy++;
+        }
+        files_copy++;
+        commit_op_count++;
+      }
+    }
+
+    commit_copy++;
+  }
+
+  //CommitOperations built here and ready to be applied
+  for (i = 0; i < commit_op_count; i++) {
+    printf("%c %s %s\n", commit_ops[i]->op_code, commit_ops[i]->file_path, commit_ops[i]->contents);
+  }
 
   free_manifest(manifest);
   free(mid_buffer);
