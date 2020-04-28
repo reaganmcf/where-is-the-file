@@ -292,41 +292,9 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
   }
 
-  //Fetch version number of the current repository
-  memset(buffer, 0, 1000);
-  sprintf(buffer, "./Projects/%s/.Manifest", project_name);
-  int fd = open(buffer, O_RDONLY);
-  if (fd == -1) {
-    free(mid_buffer);
-    free(buffer);
-    pthread_mutex_unlock(&lock);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
-    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
-  }
-
-  memset(buffer, 0, 1000);
-  int n = read(fd, buffer, 1);
-  if (n != 1) {
-    free(mid_buffer);
-    free(buffer);
-    pthread_mutex_unlock(&lock);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
-    sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
-  }
-  while (buffer[0] != '\n') {
-    n = read(fd, buffer, 1);
-  }
-  read(fd, buffer, 1);
-  memset(mid_buffer, 0, 1000);
-  while (buffer[0] != '\n') {
-    sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
-    n = read(fd, buffer, 1);
-  }
-  printf("mid_buffer = %s\n", mid_buffer);
-  int version_number = atoi(mid_buffer);
-  close(fd);
-  memset(buffer, 0, 1000);
-  memset(mid_buffer, 0, 1000);
+  Manifest *manifest = fetch_manifest(project_name);
+  print_manifest(manifest, 0);
+  int version_number = manifest->version_number;
 
   //Now that all other commits are expired, lets duplicate the repo and append the version number to it so we can still access it later in rollback
 
@@ -354,8 +322,8 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   system(buffer);
 
   //Now that copy is made, read over commit messaage and apply changes
-  
 
+  free_manifest(manifest);
   free(mid_buffer);
   free(buffer);
   pthread_mutex_unlock(&lock);
@@ -646,6 +614,259 @@ char *hash_string(char *string) {
   }
 
   return hash;
+}
+
+/**
+ * Helper function for fetching the manifest and populating a Manifest data structure
+ * 
+ * Returns
+ *  NULL = Failure
+ *  Manifest* = Success
+ */
+Manifest *fetch_manifest(char *project_name) {
+  //First check that the project exists on the client
+  char *path = malloc(150);
+  sprintf(path, "./Projects/%s", project_name);
+  DIR *dir = opendir(path);
+  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST, 1);
+
+  //Fetch manifest
+  char *buffer = malloc(200);
+  char *builder = malloc(200);  //used when we need to pull out certain substrings of unkown length while reading from the buffer
+
+  sprintf(buffer, "%s/.Manifest", path);
+  int manifest_fd = open(buffer, O_RDONLY);
+  if (manifest_fd < 0) {
+    free(buffer);
+    free(builder);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 1);
+  }
+
+  //Count number of lines in file
+  int n = read(manifest_fd, buffer, 1);
+  if (n <= 0) {
+    free(buffer);
+    free(builder);
+    close(manifest_fd);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 1);
+  }
+
+  Manifest *client_manifest = malloc(sizeof(Manifest));
+  client_manifest->project_name = malloc(strlen(project_name) + 1);
+  strcpy(client_manifest->project_name, project_name);
+
+  int lines = 0;
+  while (n != 0) {
+    if (buffer[0] == '\n') lines++;
+    n = read(manifest_fd, buffer, 1);
+  }
+  lines++;  //always off by 1 since EOF isnt a new line
+
+  lines -= 2;  // we will use lines from here as the file count, and the first 2 lines are always never files
+  // printf("total of %d files\n", lines);
+  client_manifest->file_count = lines;
+  client_manifest->files = malloc(sizeof(ManifestFileEntry *) * lines);
+  lseek(manifest_fd, 0, SEEK_SET);                         //move back to front of file
+  lseek(manifest_fd, strlen(project_name) + 1, SEEK_SET);  //move to second line because we don't care about reading the name of the project again
+
+  memset(buffer, 0, 200);
+  memset(builder, 0, 200);
+  n = 1;
+  while (buffer[0] != '\n' && n != 0) {
+    sprintf(builder, "%s%c", builder, buffer[0]);
+    n = read(manifest_fd, buffer, 1);
+  }
+  client_manifest->version_number = atoi(builder);
+
+  //Now loop over all of the remaining lines building a ManifestFileEntry for each
+  int j;
+  for (j = 0; j < client_manifest->file_count; j++) {
+    memset(buffer, 0, 200);
+    memset(builder, 0, 200);
+    client_manifest->files[j] = malloc(sizeof(ManifestFileEntry));
+
+    //advance 2 bytes which will put the cursor to the start of the entry
+    lseek(manifest_fd, 2, SEEK_CUR);
+
+    //We need to check if there is either A/D opcode at the front
+    read(manifest_fd, buffer, 2);
+    // printf("Starting at %c\n", buffer[0]);
+    if ((buffer[0] == OPCODE_ADD || buffer[0] == OPCODE_DELETE) && buffer[1] == ':') {
+      //There is an op code
+      client_manifest->files[j]->op_code = buffer[0];
+      memset(buffer, 0, 200);
+      memset(builder, 0, 200);
+    } else {
+      sprintf(builder, "%c%c", buffer[0], buffer[1]);
+      client_manifest->files[j]->op_code = OPCODE_NONE;
+    }
+    // printf("\tOPCode = %c\n", client_manifest->files[j]->op_code);
+
+    memset(buffer, 0, 200);
+    while (buffer[0] != ':') {  //filename
+      sprintf(builder, "%s%c", builder, buffer[0]);
+      read(manifest_fd, buffer, 1);
+    }
+    // printf("\tFile path: %s\n", builder);
+    client_manifest->files[j]->file_path = malloc(strlen(builder));
+    strcpy(client_manifest->files[j]->file_path, builder);
+
+    memset(buffer, 0, 200);
+    memset(builder, 0, 200);
+    while (buffer[0] != ':') {  //version number
+      sprintf(builder, "%s%c", builder, buffer[0]);
+      read(manifest_fd, buffer, 1);
+    }
+    // printf("\tVersion number: %d\n", atoi(builder));
+    client_manifest->files[j]->version_number = atoi(builder);
+
+    memset(buffer, 0, 200);
+    memset(builder, 0, 200);
+    while (buffer[0] != ':') {  //hash code
+      sprintf(builder, "%s%c", builder, buffer[0]);
+      read(manifest_fd, buffer, 1);
+    }
+    // printf("\tHash code: %s\n", builder);
+    client_manifest->files[j]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+    memset(client_manifest->files[j]->hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+    strcpy(client_manifest->files[j]->hash, builder);
+
+    memset(buffer, 0, 200);
+    memset(builder, 0, 200);
+    //If there is a `!` meaning the server has not seen this entry yet
+    read(manifest_fd, buffer, 1);
+    if (buffer[0] == '!') {
+      client_manifest->files[j]->seen_by_server = 0;
+      lseek(manifest_fd, 1, SEEK_CUR);
+    } else {
+      client_manifest->files[j]->seen_by_server = 1;
+    }
+    // printf("\tSeen by Server = %d\n", client_manifest->files[j]->seen_by_server);
+
+    client_manifest->files[j]->new_hash = NULL;
+  }
+
+  //free mem and return
+  free(buffer);
+  free(path);
+  free(builder);
+  close(manifest_fd);
+  closedir(dir);
+  return client_manifest;
+}
+
+/**
+ * 
+ * print_manifest
+ * 
+ * Prints manifest as readable string
+ */
+void print_manifest(Manifest *m, int verbose) {
+  printf("[ MANIFEST]\n");
+  printf("Project: %s\n", m->project_name);
+  printf("Version: %d\n", m->version_number);
+  printf("%d Total Files:\n", m->file_count);
+  int i;
+  for (i = 0; i < m->file_count; i++) {
+    if (!verbose) {
+      printf("\t%s Version: %d\n", m->files[i]->file_path, m->files[i]->version_number);
+    } else {
+      printf("\t%s Version: %d; Hash: %s\n", m->files[i]->file_path, m->files[i]->version_number, m->files[i]->hash);
+    }
+  }
+  for (i = 0; i < m->new_file_count; i++) {
+    if (!verbose) {
+      printf("\t%s Version: %d\n", m->new_files[i]->file_path, m->new_files[i]->version_number);
+    } else {
+      printf("\t%s Version: %d; Hash: %s\n", m->new_files[i]->file_path, m->new_files[i]->version_number, m->files[i]->hash);
+    }
+  }
+}
+
+/**
+ * 
+ * free_manifest
+ * 
+ * Frees a manifest data structure
+ */
+void free_manifest(Manifest *m) {
+  int i;
+  for (i = 0; i < m->file_count; i++) {
+    free(m->files[i]->file_path);
+    free(m->files[i]->hash);
+    if (m->files[i]->new_hash != NULL) free(m->files[i]->new_hash);
+    free(m->files[i]);
+  }
+  for (i = 0; i < m->new_file_count; i++) {
+    free(m->new_files[i]->file_path);
+    free(m->new_files[i]->hash);
+    free(m->new_files[i]);
+  }
+  free(m->project_name);
+  free(m->files);
+  free(m);
+}
+
+/**
+ * write_manifest
+ * 
+ * Writes out Manifest object to the local .Manifest
+ * 
+ * Taken from ./client/client.c but needed for complex manifest operations (such as inside push())
+ *  
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int write_manifest(Manifest *manifest) {
+  char *buffer = malloc(500);
+  sprintf(buffer, "./Projects/%s/.Manifest", manifest->project_name);
+
+  //remove file and create it again. We are going to write out the entire .Manifest anyway
+  remove(buffer);
+  int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd == -1) {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    free(buffer);
+    return 0;
+  }
+
+  //check if we can write
+  int n = write(fd, manifest->project_name, strlen(manifest->project_name));
+  if (n <= 0) {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    free(buffer);
+    return 0;
+  }
+  //write headers
+  memset(buffer, 0, 500);
+  sprintf(buffer, "\n", 1);
+  write(fd, buffer, 1);
+  memset(buffer, 0, 500);
+  sprintf(buffer, "%d", manifest->version_number);
+  write(fd, buffer, strlen(buffer));
+
+  //write all file entries
+  int i;
+  for (i = 0; i < manifest->file_count; i++) {
+    if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
+    //Construct entry string
+    memset(buffer, 0, 500);
+    sprintf(buffer, "\n~ ");
+    if (manifest->files[i]->op_code != OPCODE_NONE) {
+      sprintf(buffer, "%s%c:", buffer, manifest->files[i]->op_code);
+    }
+    sprintf(buffer, "%s%s:%d:%s", buffer, manifest->files[i]->file_path, manifest->files[i]->version_number, manifest->files[i]->hash);
+    if (manifest->files[i]->seen_by_server == 0) {
+      sprintf(buffer, "%s:!", buffer);
+    }
+    sprintf(buffer, "%s", buffer);
+    write(fd, buffer, strlen(buffer));
+  }
+
+  close(fd);
+  free(buffer);
+  return 1;
 }
 
 /**

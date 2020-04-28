@@ -446,6 +446,7 @@ int wtf_commit(char *project_name) {
   }
 
   char *commit_buffer = malloc(500000);
+  int total_writes = 0;
 
   //Check if client needs to sync first
   int j;
@@ -480,8 +481,12 @@ int wtf_commit(char *project_name) {
           //Client has different file, now make sure that the client hash == server hash
           if (strcmp(client_manifest->files[i]->hash, server_manifest->files[j]->hash) == 0) {
             //This is a match. We need to append a MODIFY opcode to .Commit
+            if (total_writes != 0) {
+              sprintf(commit_buffer, "%s\n", commit_buffer);
+            }
+            total_writes++;
             printf("%c %s\n", OPCODE_MODIFY, client_manifest->files[i]->file_path);
-            sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_MODIFY, client_manifest->files[i]->file_path, server_manifest->files[j]->hash);
+            sprintf(commit_buffer, "%s%c %s %s", commit_buffer, OPCODE_MODIFY, client_manifest->files[i]->file_path, server_manifest->files[j]->hash);
           }
         }
       }
@@ -499,7 +504,11 @@ int wtf_commit(char *project_name) {
     }
     if (server_has_file == 0) {
       printf("%c %s\n", OPCODE_ADD, client_manifest->files[i]->file_path);
-      sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_ADD, client_manifest->files[i]->file_path, client_manifest->files[i]->new_hash);
+      if (total_writes != 0) {
+        sprintf(commit_buffer, "%s\n", commit_buffer);
+      }
+      total_writes++;
+      sprintf(commit_buffer, "%s%c %s %s", commit_buffer, OPCODE_ADD, client_manifest->files[i]->file_path, client_manifest->files[i]->new_hash);
     }
   }
 
@@ -514,7 +523,11 @@ int wtf_commit(char *project_name) {
     }
     if (client_has_file == 0) {
       printf("%c %s\n", OPCODE_DELETE, server_manifest->files[i]->file_path);
-      sprintf(commit_buffer, "%s%c %s %s\n", commit_buffer, OPCODE_DELETE, server_manifest->files[i]->file_path, server_manifest->files[i]->hash);
+      if (total_writes != 0) {
+        sprintf(commit_buffer, "%s\n", commit_buffer);
+      }
+      total_writes++;
+      sprintf(commit_buffer, "%s%c %s %s", commit_buffer, OPCODE_DELETE, server_manifest->files[i]->file_path, server_manifest->files[i]->hash);
     }
   }
 

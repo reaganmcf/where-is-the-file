@@ -6,6 +6,11 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#define OPCODE_ADD 'A'
+#define OPCODE_DELETE 'D'
+#define OPCODE_MODIFY 'M'
+#define OPCODE_NONE 'N'
+
 //Possible Command Strings for the Server
 const char *COMMAND_CREATE_PROJECT = "create_project";
 const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
@@ -44,6 +49,27 @@ struct _error_desc {
 
 };
 
+//Struct for handling complicated file entries in .Manifest
+typedef struct _manifest_file {
+  char op_code;
+  char *file_path;
+  int version_number;
+  char *hash;
+  char *new_hash;  //used when commiting
+  int seen_by_server;
+} ManifestFileEntry;
+
+//Struct for handling complicated .Manifest
+typedef struct _manifest {
+  char *project_name;
+  int version_number;
+  int file_count;
+  int new_file_count;
+  ManifestFileEntry **files;
+  ManifestFileEntry **new_files;
+} Manifest;
+
+//connection struct
 typedef struct
 {
   int socket;
@@ -71,6 +97,18 @@ char *wtf_server_write_commit(char *, char *);
 
 //Function Prototype for handling push
 char *wtf_server_push(char *, char *, char *);
+
+//Function Prototype for fetching manifest on server side
+Manifest *fetch_manifest(char *);
+
+//Function Prototype for printing manifest
+void print_manifest(Manifest *, int);
+
+//Function Prototype for writing manifest
+int write_manifest(Manifest *);
+
+//Function Prototype for freeing manifest
+void free_manifest(Manifest *);
 
 //Function Prototype for hashing string helper function
 char *hash_string(char *);
