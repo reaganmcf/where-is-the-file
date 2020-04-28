@@ -56,7 +56,9 @@ enum _error_codes {
   E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST = 33,
   E_CANNOT_COMMIT_MUST_SYNCH_FIRST = 34,
   E_CANNOT_WRITE_COMMIT = 35,
-  E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT = 36
+  E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT = 36,
+  E_IMPROPER_PUSH_PARAMS = 37,
+  E_IMPROPER_PUSH_PROJECT_NAME = 38
 };
 
 typedef enum _error_codes wtf_error;
@@ -101,7 +103,9 @@ struct _error_desc {
     {E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, "Provided file path doesn't exist in the project's Manifest"},
     {E_CANNOT_COMMIT_MUST_SYNCH_FIRST, "Cannot commit because the client must synch with repository before committing changes."},
     {E_CANNOT_WRITE_COMMIT, "Improper permissions to write to .Commit"},
-    {E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, "Unable to read new .Commit to the project directory. Please check your permissions to this directory"}
+    {E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, "Unable to read new .Commit to the project directory. Please check your permissions to this directory"},
+    {E_IMPROPER_PUSH_PARAMS, "Improper params for push command. Please follow the format of ./WTF push <project-name>"},
+    {E_IMPROPER_PUSH_PROJECT_NAME, "Improper project name provided for currentversion. Project names cannot contain ':'."}
 
 };
 
@@ -170,6 +174,9 @@ int write_manifest(Manifest *);
 
 //Function Prototype for removing entry from .Manifest
 int wtf_remove(char *, char *);
+
+//Function Prototype for push a commit to server
+int wtf_push(char *);
 
 //Function Prototype for printing Manifest out as string
 void print_manifest(Manifest *, int, int);

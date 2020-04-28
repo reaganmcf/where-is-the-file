@@ -162,6 +162,33 @@ int main(int argc, char **argv) {
     } else {
       //Won't ever get here because errors will be handled inside of wtf_add first
     }
+  } else if (strcmp(command, "push") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_PUSH_PARAMS, 1);
+    }
+    char *project_name = argv[2];
+
+    //Check that the project name doesn't contain : which is our delim
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_PUSH_PROJECT_NAME, 1);
+    }
+
+    //All ready, create a connection handler and call the server
+    int result = wtf_push(project_name);
+    if (result == 1) {
+      printf("Successfully retrieved project information from the server.\n");
+      return 0;
+    } else {
+      //Wont ever get here because errors will be handled inside of wtf_push first
+    }
   }
 
   // wtf_connection *connection = wtf_connect();
@@ -178,6 +205,18 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * Push project command
+ * 
+ * Send the server our .Commit as well as all files we have. Server will handle most of the operation here.
+ * 
+ * We need to check if we have a .Commit, if we can establish a valid wtf_connection, and the project exists on the server
+ * 
+ */
+int wtf_push(char* project_name) {
+  
 }
 
 /**
@@ -298,6 +337,7 @@ int wtf_commit(char *project_name) {
             //SHOULD FAIL NEED TO UPDATE
             free(commit_buffer);
             free(buffer);
+            free(hash);
             free_manifest(server_manifest);
             free_manifest(client_manifest);
             close(connection->socket);
@@ -361,6 +401,7 @@ int wtf_commit(char *project_name) {
     printf("Nothing to commit\n");
     free(commit_buffer);
     free(buffer);
+    free(hash);
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     close(connection->socket);
@@ -375,6 +416,7 @@ int wtf_commit(char *project_name) {
   if (fd == -1) {
     free(buffer);
     free(commit_buffer);
+    free(hash);
     close(connection->socket);
     free(connection);
     free_manifest(server_manifest);
@@ -385,6 +427,7 @@ int wtf_commit(char *project_name) {
   if (n <= 0) {
     free(buffer);
     free(commit_buffer);
+    free(hash);
     close(connection->socket);
     free(connection);
     free_manifest(server_manifest);
@@ -395,11 +438,12 @@ int wtf_commit(char *project_name) {
 
   //.Commit written, send it to the server
   char *server_buffer = malloc(500200);
+  memset(server_buffer, 0, 500200);
   sprintf(server_buffer, "%d:%s:%d:%s:%d:%s", strlen(COMMAND_CREATE_COMMIT), COMMAND_CREATE_COMMIT, strlen(project_name), project_name, strlen(commit_buffer), commit_buffer);
   printf("Attempting to send (%d) bytes to the server\n", strlen(server_buffer));
   int msg_size = strlen(server_buffer) + 1;
   write(connection->socket, &msg_size, sizeof(int));
-  write(connection->socket, server_buffer, strlen(server_buffer) + 1);
+  write(connection->socket, server_buffer, strlen(server_buffer));
   memset(buffer, 0, 1000);
   n = read(connection->socket, buffer, 4);
   printf("return buffer is %s\n", buffer);
@@ -417,6 +461,7 @@ int wtf_commit(char *project_name) {
   free_manifest(server_manifest);
   free_manifest(client_manifest);
   close(fd);
+  free(hash);
   close(connection->socket);
   free(connection);
   free(server_buffer);
