@@ -190,6 +190,30 @@ int main(int argc, char **argv) {
     } else {
       //Wont ever get here because errors will be handled inside of wtf_push first
     }
+  } else if (strcmp(command, "history") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_HISTORY_PARAMS, 1);
+    }
+
+    char *project_name = argv[2];
+
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':')
+        safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_CREATE_PROJECT_NAME, 1);
+    }
+
+    //All ready, create a connection handler and call server
+    int result = wtf_history(project_name);
+
   } else {
     wtf_perror(E_NO_COMMAND_PROVIDED, 1);
   }
@@ -208,6 +232,65 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * History command
+ * 
+ * Send the server the project name and retrieve back the full length of all operations performed on the repo
+ * 
+ * Most of the work is done server side
+ * 
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_history(char *project_name) {
+  wtf_connection *connection = wtf_connect();
+  char *buffer = malloc(200);
+  char *ret_buffer = malloc(100000);
+  memset(buffer, 0, 200);
+  memset(ret_buffer, 0, 100000);
+  sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_GET_HISTORY), COMMAND_GET_HISTORY, strlen(project_name), project_name);
+  int msg_size = strlen(buffer) + 1;
+  printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+  write(connection->socket, &msg_size, sizeof(int));
+  write(connection->socket, buffer, strlen(buffer) + 1);
+
+  //Handle callback
+  memset(buffer, 0, 200);
+  read(connection->socket, ret_buffer, 100000);
+  if (ret_buffer[0] == '1' && ret_buffer[1] == ':') {
+    int i = 0;
+    while (ret_buffer[i] != ':') i++;
+    i++;
+    while (ret_buffer[i] != ':') i++;
+    i++;
+    //print starting from this index
+    while (ret_buffer[i] != 0) {
+      printf("%c", ret_buffer[i]);
+      i++;
+    }
+    printf("\n");
+    free(ret_buffer);
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    return 1;
+  } else {
+    //error checks
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    if (ret_buffer[0] == '2') {
+      free(ret_buffer);
+      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
+    } else if (ret_buffer[0] == '3') {
+      free(ret_buffer);
+      wtf_perror(E_SERVER_MANIFEST_ALREADY_EXISTS, 1);
+    }
+    return 0;
+  }
 }
 
 /**

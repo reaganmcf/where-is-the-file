@@ -19,6 +19,7 @@ const char *COMMAND_CREATE_PROJECT = "create_project";
 const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 const char *COMMAND_CREATE_COMMIT = "create_commit";
 const char *COMMAND_CREATE_PUSH = "create_push";
+const char *COMMAND_GET_HISTORY = "get_history";
 
 //Possible Error Codes for the Client
 enum _error_codes {
@@ -64,7 +65,8 @@ enum _error_codes {
   E_CANNOT_READ_COMMIT = 40,
   E_CANNOT_READ_FILES_IN_COMMIT = 41,
   E_NO_COMMAND_PROVIDED = 42,
-  E_SERVER_FAILED_PUSH = 43
+  E_SERVER_FAILED_PUSH = 43,
+  E_IMPROPER_HISTORY_PARAMS = 44
 };
 
 typedef enum _error_codes wtf_error;
@@ -116,7 +118,8 @@ struct _error_desc {
     {E_CANNOT_READ_COMMIT, "Improper permissions to read .Commit"},
     {E_CANNOT_READ_FILES_IN_COMMIT, "Unable to read files listed in the .Commit"},
     {E_NO_COMMAND_PROVIDED, "Provided input params didn't match any command patterns. Please enter a valid command according to the README"},
-    {E_SERVER_FAILED_PUSH, "Couldn't successfully run push command because the server encountered an error. Please check server output to see what happened."}
+    {E_SERVER_FAILED_PUSH, "Couldn't successfully run push command because the server encountered an error. Please check server output to see what happened."},
+    {E_IMPROPER_HISTORY_PARAMS, "Improper params for history command. Please follow the format of ./WTF history <project-name>"}
 
 };
 
@@ -188,6 +191,9 @@ int wtf_remove(char *, char *);
 
 //Function Prototype for push a commit to server
 int wtf_push(char *);
+
+//Function Prototype for retrieving history of repo
+int wtf_history(char *);
 
 //Function Prototype for printing Manifest out as string
 void print_manifest(Manifest *, int, int);

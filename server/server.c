@@ -223,6 +223,20 @@ void *wtf_process(void *pointer) {
     free(project_name);
     free(commit_buffer);
     free(file_buffer);
+  } else if (strcmp(command, COMMAND_GET_HISTORY) == 0) {
+    //Handle incoming message
+    int project_name_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *project_name = malloc(project_name_size + 1);
+    memset(project_name, 0, project_name_size + 1);
+    strncpy(project_name, buffer, project_name_size);
+    //go ahead and call function handler
+    char *ret = wtf_server_get_history(project_name);
+    write(connection->socket, ret, strlen(ret));
+
+    free(ret);
+    free(project_name);
   }
 
   //Close socket and cleanup
@@ -232,6 +246,84 @@ void *wtf_process(void *pointer) {
   len = 0;
   printf("\tFinished\n");
   pthread_exit(0);
+}
+
+/**
+ * wtf_server_get_history
+ * 
+ * Handler for the get_history directive
+ * 
+ * fetches the project's .History file and returns a string containing its contents
+ */
+char *wtf_server_get_history(char *project_name) {
+  char *buffer = malloc(200);
+  char *mid_buffer = malloc(99999);
+  char *ret = malloc(100000);
+  memset(ret, 0, 100000);
+  memset(mid_buffer, 0, 99999);
+  memset(buffer, 0, 200);
+  sprintf(buffer, "./Projects/%s", project_name);
+
+  //First we need to loop over the directory ./Projects/ and check if any of the file names already exist
+  DIR *d;
+  struct dirent *dir;
+  d = opendir("./Projects/");
+  int name_exists = 0;
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      if (!isRegFile(dir->d_name)) {
+        if (strcmp(dir->d_name, project_name) == 0)
+          name_exists = 1;
+      }
+      // printf("%s\n", dir->d_name);
+    }
+    closedir(d);
+  } else {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    sprintf(ret, "2");
+    free(buffer);
+    free(mid_buffer);
+    return ret;
+  }
+
+  if (name_exists == 0) {
+    wtf_perror(E_PROJECT_DOESNT_EXIST, 0);
+    sprintf(ret, "3");
+    free(buffer);
+    free(mid_buffer);
+    return ret;
+  }
+
+  memset(buffer, 0, 200);
+  sprintf(buffer, "./Projects/%s/.History", project_name);
+  if (isRegFile(buffer) == 0) {
+    //no history is fine, we just need to return a string saying no history
+    char *t = "Repository has no history yet";
+    sprintf(ret, "1:%d:%s", strlen(t), t);
+    return ret;
+  }
+
+  printf("\tattemtping to read %s\n", buffer);
+  int fd = open(buffer, O_RDWR);
+
+  if (fd == -1) {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    sprintf(ret, "2");
+    free(buffer);
+    return ret;
+  }
+  memset(buffer, 0, 2);
+  int n = read(fd, buffer, 1);
+  while (n != 0) {
+    sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
+    n = read(fd, buffer, 1);
+  }
+
+  sprintf(ret, "1:%d:%s", strlen(mid_buffer), mid_buffer);
+  free(buffer);
+  free(mid_buffer);
+  close(fd);
+  return ret;
 }
 
 /**

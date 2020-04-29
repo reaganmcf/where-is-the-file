@@ -16,6 +16,7 @@ const char *COMMAND_CREATE_PROJECT = "create_project";
 const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 const char *COMMAND_CREATE_COMMIT = "create_commit";
 const char *COMMAND_CREATE_PUSH = "create_push";
+const char *COMMAND_GET_HISTORY = "get_history";
 
 //Possible Error Codes for the Server
 enum _error_codes {
@@ -41,7 +42,7 @@ struct _error_desc {
     {E_ERROR_MAKING_SOCKET, "There was an issue while creating the socket"},
     {E_ERROR_BINDING_SOCKET_TO_PORT, "There was an error while attempting to bind the socket to the port provided."},
     {E_CANNOT_LISTEN_TO_PORT, "Unable to have the socket listen on the provided port."},
-    {E_CANNOT_READ_OR_WRITE_PROJECT_DIR, "Unable to read or write to ./Manifests/ directory."},
+    {E_CANNOT_READ_OR_WRITE_PROJECT_DIR, "Unable to read or write to ./Projects/ directory."},
     {E_PROJECT_ALREADY_EXISTS, "Project already exists with this name."},
     {E_PROJECT_DOESNT_EXIST, "Project doesn't exist on the server."},
     {E_CANNOT_INIT_MUTEX, "Cannot Initialize mutex lock."},
@@ -104,6 +105,9 @@ char *wtf_server_write_commit(char *, char *);
 
 //Function Prototype for handling push
 char *wtf_server_push(char *, char *, char *);
+
+//Function Prototype for handling get_history command
+char *wtf_server_get_history(char *);
 
 //Function Prototype for fetching manifest on server side
 Manifest *fetch_manifest(char *);
