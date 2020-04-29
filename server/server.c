@@ -374,6 +374,8 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     commit_copy++;
   }
 
+  printf("\tall commit ops made\n");
+
   memset(buffer, 0, 1000);
   sprintf(buffer, "./Projects/%s/.History", project_name);
   int history_fd = open(buffer, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
@@ -456,6 +458,7 @@ char *wtf_server_write_commit(char *project_name, char *commit) {
   char *buff = malloc(4);
   memset(buff, 0, 4);
   memset(buffer, 0, 1000);
+  printf("\tcommit is %s\n", commit);
   sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit));
   printf("\tAttemtping to write %s\n", buffer);
 
@@ -969,7 +972,7 @@ int write_manifest(Manifest *manifest) {
     if (manifest->files[i]->seen_by_server == 0) {
       sprintf(buffer, "%s:!", buffer);
     }
-    sprintf(buffer, "%s", buffer);
+    sprintf(buffer, "%s:", buffer);
     write(fd, buffer, strlen(buffer));
   }
 

@@ -344,13 +344,17 @@ int wtf_push(char *project_name) {
   n = read(connection->socket, buffer, 4);
   int ret_status = atoi(buffer);
   if (ret_status == 101) {
-    printf("\tSuccessfully pushed");
+    printf("Successfully pushed\n");
     client_manifest->version_number += 1;
     for (i = 0; i < client_manifest->file_count; i++) {
       client_manifest->files[i]->seen_by_server = 1;
       client_manifest->files[i]->op_code = OPCODE_NONE;
     }
     write_manifest(client_manifest);
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "./%s/.Commit", project_name);
+    remove(buffer);
+
   } else {
     //Shit hit the fan, don't update manifest
     free(final_buffer);
@@ -709,7 +713,7 @@ int write_manifest(Manifest *manifest) {
     if (manifest->files[i]->seen_by_server == 0) {
       sprintf(buffer, "%s:!", buffer);
     }
-    sprintf(buffer, "%s", buffer);
+    sprintf(buffer, "%s:", buffer);
     write(fd, buffer, strlen(buffer));
   }
 
@@ -987,7 +991,7 @@ Manifest *fetch_client_manifest(char *project_name) {
 int wtf_get_current_version(char *project_name) {
   Manifest *m = fetch_server_manifest(project_name);
   if (m == NULL) return 0;
-  print_manifest(m, SERVER, 0);
+  print_manifest(m, SERVER, 1);
 
   //free manifest
   free_manifest(m);
