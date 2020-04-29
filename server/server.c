@@ -300,6 +300,8 @@ char *wtf_server_get_history(char *project_name) {
     //no history is fine, we just need to return a string saying no history
     char *t = "Repository has no history yet";
     sprintf(ret, "1:%d:%s", strlen(t), t);
+    free(mid_buffer);
+    free(buffer);
     return ret;
   }
 
@@ -310,6 +312,7 @@ char *wtf_server_get_history(char *project_name) {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
     sprintf(ret, "2");
     free(buffer);
+    free(mid_buffer);
     return ret;
   }
   memset(buffer, 0, 2);

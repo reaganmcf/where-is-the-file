@@ -214,6 +214,9 @@ int main(int argc, char **argv) {
     //All ready, create a connection handler and call server
     int result = wtf_history(project_name);
 
+  } else if (strcmp(command, "destroy") == 0) {
+    //Check params
+
   } else {
     wtf_perror(E_NO_COMMAND_PROVIDED, 1);
   }
