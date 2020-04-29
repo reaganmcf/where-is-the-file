@@ -63,7 +63,8 @@ enum _error_codes {
   E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT = 39,
   E_CANNOT_READ_COMMIT = 40,
   E_CANNOT_READ_FILES_IN_COMMIT = 41,
-  E_NO_COMMAND_PROVIDED = 42
+  E_NO_COMMAND_PROVIDED = 42,
+  E_SERVER_FAILED_PUSH = 43
 };
 
 typedef enum _error_codes wtf_error;
@@ -114,7 +115,8 @@ struct _error_desc {
     {E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT, "Unable to push because client does not have a .Commit. Please run ./WTF commit <project-name> first."},
     {E_CANNOT_READ_COMMIT, "Improper permissions to read .Commit"},
     {E_CANNOT_READ_FILES_IN_COMMIT, "Unable to read files listed in the .Commit"},
-    {E_NO_COMMAND_PROVIDED, "Provided input params didn't match any command patterns. Please enter a valid command according to the README"}
+    {E_NO_COMMAND_PROVIDED, "Provided input params didn't match any command patterns. Please enter a valid command according to the README"},
+    {E_SERVER_FAILED_PUSH, "Couldn't successfully run push command because the server encountered an error. Please check server output to see what happened."}
 
 };
 

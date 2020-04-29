@@ -340,6 +340,32 @@ int wtf_push(char *project_name) {
   int msg_size = strlen(final_buffer) + 1;
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, final_buffer, strlen(final_buffer));
+  memset(buffer, 0, 1000);
+  n = read(connection->socket, buffer, 4);
+  int ret_status = atoi(buffer);
+  if (ret_status == 101) {
+    printf("\tSuccessfully pushed");
+    client_manifest->version_number += 1;
+    for (i = 0; i < client_manifest->file_count; i++) {
+      client_manifest->files[i]->seen_by_server = 1;
+      client_manifest->files[i]->op_code = OPCODE_NONE;
+    }
+    write_manifest(client_manifest);
+  } else {
+    //Shit hit the fan, don't update manifest
+    free(final_buffer);
+    free(mid_buffer);
+    free(buffer);
+    free_manifest(client_manifest);
+    free_manifest(server_manifest);
+    wtf_perror(E_SERVER_FAILED_PUSH, 1);
+  }
+
+  free(final_buffer);
+  free(mid_buffer);
+  free(buffer);
+  free_manifest(client_manifest);
+  free_manifest(server_manifest);
 }
 
 /**

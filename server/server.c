@@ -218,6 +218,7 @@ void *wtf_process(void *pointer) {
     printf("\tFile buffer = %s\n", file_buffer);
 
     char *ret = wtf_server_push(project_name, commit_buffer, file_buffer);
+    write(connection->socket, ret, 3);
 
     free(project_name);
     free(commit_buffer);
@@ -331,11 +332,13 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   strcpy(commit_copy, commit_contents);
   strcpy(files_copy, files_string);
   int commit_op_count = 0;
+  int non_delete_commit_op_count = 0;
   CommitOperation **commit_ops = malloc(sizeof(CommitOperation *) * 1000);
 
   while (commit_copy[0] != 0) {
     if (commit_copy[0] == OPCODE_ADD || commit_copy[0] == OPCODE_DELETE || commit_copy[0] == OPCODE_MODIFY) {
       opcode = commit_copy[0];
+      if (opcode == OPCODE_ADD || opcode == OPCODE_MODIFY) non_delete_commit_op_count++;
       if (commit_copy[1] == ' ') {
         //entry starts here
         commit_copy += 2;
@@ -371,15 +374,68 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     commit_copy++;
   }
 
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "./Projects/%s/.History", project_name);
+  int history_fd = open(buffer, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "%d\n", manifest->version_number + 1);
+  write(history_fd, buffer, strlen(buffer));
+
+  //create new manifest that will overwrite old one
+  Manifest *new_manifest = malloc(sizeof(Manifest));
+  new_manifest->version_number = manifest->version_number + 1;
+  new_manifest->project_name = malloc(strlen(manifest->project_name) + 1);
+  strcpy(new_manifest->project_name, manifest->project_name);
+  new_manifest->file_count = non_delete_commit_op_count;
+  new_manifest->files = malloc(sizeof(ManifestFileEntry *) * non_delete_commit_op_count);
+
   //CommitOperations built here and ready to be applied
+  int fd;
   for (i = 0; i < commit_op_count; i++) {
     printf("%c %s %s\n", commit_ops[i]->op_code, commit_ops[i]->file_path, commit_ops[i]->contents);
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "%c %s\n", commit_ops[i]->op_code, commit_ops[i]->file_path);
+    write(history_fd, buffer, strlen(buffer));
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "./Projects/%s", commit_ops[i]->file_path);
+    if (commit_ops[i]->op_code == OPCODE_ADD || commit_ops[i]->op_code == OPCODE_MODIFY) {
+      printf("\tadding/modifying\n");
+      new_manifest->files[i] = malloc(sizeof(ManifestFileEntry));
+      new_manifest->files[i]->file_path = malloc(strlen(commit_ops[i]->file_path) + 1);
+      strcpy(new_manifest->files[i]->file_path, commit_ops[i]->file_path);
+      new_manifest->files[i]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+      new_manifest->files[i]->hash = hash_string(commit_ops[i]->contents);
+      new_manifest->files[i]->op_code = OPCODE_NONE;
+      new_manifest->files[i]->seen_by_server = 1;
+
+      //if modify, delete the file and we will write it again
+      if (commit_ops[i]->op_code == OPCODE_MODIFY) {
+        remove(buffer);
+      }
+      //create the file and write to it
+      fd = open(buffer, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+      if (fd == -1) {
+        printf("couldn't create file %s\n", commit_ops[i]->file_path);
+      }
+      write(fd, commit_ops[i]->contents, strlen(commit_ops[i]->contents));
+      close(fd);
+    } else {
+      //has to be delete
+      printf("\tdeleting\n");
+      remove(buffer);
+    }
   }
+
+  close(history_fd);
+
+  //write new manifest
+  write_manifest(new_manifest);
 
   free_manifest(manifest);
   free(mid_buffer);
   free(buffer);
   pthread_mutex_unlock(&lock);
+  sprintf(buff, "101");
   return buff;
 }
 
