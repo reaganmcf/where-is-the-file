@@ -184,7 +184,7 @@ void *wtf_process(void *pointer) {
     printf("commit_buffer_size is %d\n", commit_buffer_size);
     printf("buffer is %s\n", buffer);
     char *commit_buffer = malloc(commit_buffer_size + 1);
-    memset(commit_buffer, 0, commit_buffer_size);
+    memset(commit_buffer, 0, commit_buffer_size + 1);
     strncpy(commit_buffer, buffer, commit_buffer_size);
     char *status = wtf_server_write_commit(project_name, commit_buffer);
     write(connection->socket, status, 3);
@@ -200,20 +200,23 @@ void *wtf_process(void *pointer) {
     while (buffer[0] != ':') buffer++;
     buffer++;
     char *project_name = malloc(project_name_size + 1);
+    memset(project_name, 0, project_name_size + 1);
     strncpy(project_name, buffer, project_name_size);
     while (buffer[0] != ':') buffer++;
     buffer++;
     int commit_buffer_size = atoi(buffer);
     while (buffer[0] != ':') buffer++;
     buffer++;
-    char *commit_buffer = malloc(commit_buffer_size);
+    char *commit_buffer = malloc(commit_buffer_size + 1);
+    memset(commit_buffer, 0, commit_buffer_size + 1);
     strncpy(commit_buffer, buffer, commit_buffer_size);
     while (buffer[0] != ':') buffer++;
     buffer++;
     int file_buffer_length = atoi(buffer);
     while (buffer[0] != ':') buffer++;
     buffer++;
-    char *file_buffer = malloc(file_buffer_length);
+    char *file_buffer = malloc(file_buffer_length + 1);
+    memset(file_buffer, 0, file_buffer_length + 1);
     strncpy(file_buffer, buffer, file_buffer_length);
 
     printf("\tProject_name = %s\n", project_name);
@@ -606,17 +609,20 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
           commit_copy++;
         }
         commit_ops[commit_op_count]->file_path = malloc(strlen(buffer) + 1);
+        memset(commit_ops[commit_op_count]->file_path, 0, strlen(buffer) + 1);
         strcpy(commit_ops[commit_op_count]->file_path, buffer);
 
-        files_copy += strlen(commit_ops[commit_op_count]->file_path) + 1;  //advance files string until number designating length of file contents
-        memset(buffer, 0, 1000);
-        while (files_copy[0] != ':') {
-          sprintf(buffer, "%s%c", buffer, files_copy[0]);
+        if (strlen(files_copy) != 0) {
+          files_copy += strlen(commit_ops[commit_op_count]->file_path) + 1;  //advance files string until number designating length of file contents
+          memset(buffer, 0, 1000);
+          while (files_copy[0] != ':') {
+            sprintf(buffer, "%s%c", buffer, files_copy[0]);
+            files_copy++;
+          }
           files_copy++;
         }
-        files_copy++;
         int file_contents_length = atoi(buffer);
-        commit_ops[commit_op_count]->contents = malloc(file_contents_length);
+        commit_ops[commit_op_count]->contents = malloc(file_contents_length + 1);
         memset(commit_ops[commit_op_count]->contents, 0, file_contents_length);
         for (i = 0; i < file_contents_length; i++) {
           sprintf(commit_ops[commit_op_count]->contents, "%s%c", commit_ops[commit_op_count]->contents, files_copy[0]);
@@ -676,10 +682,27 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
         remove(buffer);
       }
       //create the file and write to it
-      //touch the file first because if its nested in dirs it will create dirs too
+      //we need to pull out the dir tree path first
+      char *dir_paths = malloc(1000);
+      memset(dir_paths, 0, 1000);
+      int k = 0;
+      int slash_index = 0;
+      while (commit_ops[i]->file_path[k] != 0) {
+        if (commit_ops[i]->file_path[k] == '/')
+          slash_index = k;
+        k++;
+      }
+      strncpy(dir_paths, commit_ops[i]->file_path, slash_index + 1);
+      printf("\tdir subtree is %s\n", dir_paths);
+
       memset(mid_buffer, 0, 1000);
-      sprintf(mid_buffer, "file=%s && mkdir -p \"{file%/*} && tocuh \"$file\"", buffer);
-      printf("\ttouch buffer is %s\n", mid_buffer);
+      sprintf(mid_buffer, "mkdir -p ./Projects/%s", dir_paths);
+      system(mid_buffer);
+      free(dir_paths);
+      memset(mid_buffer, 0, 1000);
+      sprintf(mid_buffer, 0, "touch %s", commit_ops[i]->file_path);
+      system(mid_buffer);
+
       fd = open(buffer, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
       if (fd == -1) {
         printf("couldn't create file %s\n", commit_ops[i]->file_path);

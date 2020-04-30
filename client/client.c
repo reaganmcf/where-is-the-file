@@ -944,7 +944,7 @@ int write_manifest(Manifest *manifest) {
     if (manifest->files[i]->seen_by_server == 0) {
       sprintf(buffer, "%s:!", buffer);
     }
-    sprintf(buffer, "%s", buffer);
+    sprintf(buffer, "%s:", buffer);
     write(fd, buffer, strlen(buffer));
   }
 
