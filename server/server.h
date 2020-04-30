@@ -17,6 +17,7 @@ const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 const char *COMMAND_CREATE_COMMIT = "create_commit";
 const char *COMMAND_CREATE_PUSH = "create_push";
 const char *COMMAND_GET_HISTORY = "get_history";
+const char *COMMAND_DESTORY_PROJECT = "destroy_project";
 
 //Possible Error Codes for the Server
 enum _error_codes {
@@ -108,6 +109,9 @@ char *wtf_server_push(char *, char *, char *);
 
 //Function Prototype for handling get_history command
 char *wtf_server_get_history(char *);
+
+//Function Prototype for handling destory_project command
+int wtf_server_destroy_project(char *);
 
 //Function Prototype for fetching manifest on server side
 Manifest *fetch_manifest(char *);

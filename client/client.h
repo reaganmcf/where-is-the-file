@@ -20,6 +20,7 @@ const char *COMMAND_CURRENT_VERSION_PROJECT = "get_current_version";
 const char *COMMAND_CREATE_COMMIT = "create_commit";
 const char *COMMAND_CREATE_PUSH = "create_push";
 const char *COMMAND_GET_HISTORY = "get_history";
+const char *COMMAND_DESTORY_PROJECT = "destroy_project";
 
 //Possible Error Codes for the Client
 enum _error_codes {
@@ -66,7 +67,9 @@ enum _error_codes {
   E_CANNOT_READ_FILES_IN_COMMIT = 41,
   E_NO_COMMAND_PROVIDED = 42,
   E_SERVER_FAILED_PUSH = 43,
-  E_IMPROPER_HISTORY_PARAMS = 44
+  E_IMPROPER_HISTORY_PARAMS = 44,
+  E_IMPROPER_DESTROY_PARAMS = 45,
+  E_IMPROPER_DESTROY_PROJECT_NAME = 46
 };
 
 typedef enum _error_codes wtf_error;
@@ -119,7 +122,9 @@ struct _error_desc {
     {E_CANNOT_READ_FILES_IN_COMMIT, "Unable to read files listed in the .Commit"},
     {E_NO_COMMAND_PROVIDED, "Provided input params didn't match any command patterns. Please enter a valid command according to the README"},
     {E_SERVER_FAILED_PUSH, "Couldn't successfully run push command because the server encountered an error. Please check server output to see what happened."},
-    {E_IMPROPER_HISTORY_PARAMS, "Improper params for history command. Please follow the format of ./WTF history <project-name>"}
+    {E_IMPROPER_HISTORY_PARAMS, "Improper params for history command. Please follow the format of ./WTF history <project-name>"},
+    {E_IMPROPER_DESTROY_PARAMS, "Improper params for destroy command. Please follow the format of ./WTF destroy <project-name>"},
+    {E_IMPROPER_DESTROY_PROJECT_NAME, "Improper project name provided for destroy. Project names cannot contain ':'."}
 
 };
 
@@ -195,13 +200,14 @@ int wtf_push(char *);
 //Function Prototype for retrieving history of repo
 int wtf_history(char *);
 
+//Function Prototype for destroying project
+void wtf_destory(char *);
+
 //Function Prototype for printing Manifest out as string
 void print_manifest(Manifest *, int, int);
 
 //Function Prototype for freeing Manifest
 void free_manifest(Manifest *);
-
-//Function Prototy
 
 //Function Prototype for hashing a file helper function
 char *hash_file(char *path);

@@ -146,7 +146,7 @@ void *wtf_process(void *pointer) {
     char *ret_buffer = malloc(4);
     sprintf(ret_buffer, "%d", (status + 1) + 100);
     printf("\tSending back {%s} to the client\n", ret_buffer);
-    write(connection->socket, ret_buffer, 5);
+    write(connection->socket, ret_buffer, 4);
     free(project_name);
   } else if (strcmp(command, COMMAND_CURRENT_VERSION_PROJECT) == 0) {
     //Current Version (of a Project) command
@@ -237,6 +237,22 @@ void *wtf_process(void *pointer) {
 
     free(ret);
     free(project_name);
+  } else if (strcmp(command, COMMAND_DESTORY_PROJECT) == 0) {
+    //Handle incoming message
+    int project_name_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *project_name = malloc(project_name_size + 1);
+    memset(project_name, 0, project_name_size + 1);
+    strncpy(project_name, buffer, project_name_size);
+    int status = wtf_server_destroy_project(project_name);
+    char *ret_buffer = malloc(3);
+    memset(ret_buffer, 0, 3);
+    sprintf(ret_buffer, "%d:", status);
+    printf("\tSending back {%s} to the client\n", ret_buffer);
+    write(connection->socket, ret_buffer, 3);
+    free(project_name);
+    free(ret_buffer);
   }
 
   //Close socket and cleanup
@@ -246,6 +262,59 @@ void *wtf_process(void *pointer) {
   len = 0;
   printf("\tFinished\n");
   pthread_exit(0);
+}
+
+/**
+ * wtf_server_destroy_project
+ * 
+ * Handler for the destroy_project directive
+ * 
+ * deletes project folder and all subfolders, etc
+ *
+ * Returns
+ *  1 = Success
+ *  5 = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
+ *  7 = E_PROJECT_DOESNT_EXIST
+ */
+int wtf_server_destroy_project(char *project_name) {
+  //lock mutex
+  pthread_mutex_lock(&lock);
+
+  //First loop over directory and check if the project actually exists
+  DIR *d;
+  struct dirent *dir;
+  d = opendir("./Projects/");
+  int name_exists = 0;
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      if (!isRegFile(dir->d_name)) {
+        if (strcmp(dir->d_name, project_name) == 0) {
+          name_exists = 1;
+        }
+      }
+    }
+    closedir(d);
+  } else {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    pthread_mutex_unlock(&lock);
+    return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
+  }
+
+  if (name_exists == 0) {
+    wtf_perror(E_PROJECT_DOESNT_EXIST, 0);
+    pthread_mutex_unlock(&lock);
+    return E_PROJECT_DOESNT_EXIST;
+  }
+
+  //Confirmed project actually exists, time to load buffer and run command
+  char *buffer = malloc(200);
+  memset(buffer, 0, 200);
+  sprintf(buffer, "rm -r ./Projects/%s", project_name);
+  system(buffer);
+
+  free(buffer);
+  pthread_mutex_unlock(&lock);
+  return 1;
 }
 
 /**
@@ -339,7 +408,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   char *mid_buffer = malloc(1000);
   char *target_commit_file_name = malloc(500);
   char *buff = malloc(4);
-  memset(buffer, 0, 4);
+  memset(buff, 0, 4);
   memset(buffer, 0, 1000);
   memset(mid_buffer, 0, 1000);
   memset(target_commit_file_name, 0, 500);

@@ -1,7 +1,7 @@
 all: compile
 
 compile:
-	gcc -lpthread -lcrypto server.c -o WTFServer
+	gcc -lpthread -lcrypto server.c -o WTFserver
 
 clean:
-	rm ./WTFServer
+	rm ./WTFserver

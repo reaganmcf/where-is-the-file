@@ -216,6 +216,26 @@ int main(int argc, char **argv) {
 
   } else if (strcmp(command, "destroy") == 0) {
     //Check params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_DESTROY_PARAMS, 1);
+    }
+
+    char *project_name = argv[2];
+
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_DESTROY_PROJECT_NAME, 1);
+    }
+
+    //All ready, create a connection handler and call server
+    int result = wtf_destroy(project_name);
 
   } else {
     wtf_perror(E_NO_COMMAND_PROVIDED, 1);
@@ -235,6 +255,57 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * Destroy command
+ * 
+ * Send the server the project name and retrieve back the status code whether the operation was performed successfully
+ * 
+ * Most of the work is done server side
+ * 
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_destroy(char *project_name) {
+  //Make a connection
+  wtf_connection *connection = wtf_connect();
+
+  char *buffer = malloc(200);
+  memset(buffer, 0, 200);
+  sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_DESTORY_PROJECT), COMMAND_DESTORY_PROJECT, strlen(project_name), project_name);
+  int msg_size = strlen(buffer) + 1;
+  printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+  write(connection->socket, &msg_size, sizeof(int));
+  write(connection->socket, buffer, strlen(buffer) + 1);
+
+  //handle callback
+  memset(buffer, 0, 200);
+  read(connection->socket, buffer, 3);
+  int ret_status = atoi(buffer);
+  if (ret_status == 1) {
+    printf("Successfully destoryed the project '%s' on the server.\n");
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    return 1;
+  } else {
+    //error'd
+    if (ret_status == 5) {
+      free(buffer);
+      close(connection->socket);
+      free(connection);
+      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
+    } else {
+      free(buffer);
+      close(connection->socket);
+      free(connection);
+      wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, 1);
+    }
+  }
+
+  return 1;
 }
 
 /**
