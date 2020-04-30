@@ -13,6 +13,8 @@
 #define OPCODE_NONE 'N'
 #define CLIENT 0
 #define SERVER 1
+#define NON_FATAL_ERROR 0
+#define FATAL_ERROR 1
 
 //Possible Command Strings for the Server
 const char *COMMAND_CREATE_PROJECT = "create_project";
@@ -21,6 +23,7 @@ const char *COMMAND_CREATE_COMMIT = "create_commit";
 const char *COMMAND_CREATE_PUSH = "create_push";
 const char *COMMAND_GET_HISTORY = "get_history";
 const char *COMMAND_DESTORY_PROJECT = "destroy_project";
+const char *COMMAND_ROLLBACK_PROJECT = "rollback_project";
 
 //Possible Error Codes for the Client
 enum _error_codes {
@@ -69,7 +72,10 @@ enum _error_codes {
   E_SERVER_FAILED_PUSH = 43,
   E_IMPROPER_HISTORY_PARAMS = 44,
   E_IMPROPER_DESTROY_PARAMS = 45,
-  E_IMPROPER_DESTROY_PROJECT_NAME = 46
+  E_IMPROPER_DESTROY_PROJECT_NAME = 46,
+  E_IMPROPER_ROLLBACK_PARAMS = 47,
+  E_IMPROPER_ROLLBACK_PROJECT_NAME = 48,
+  E_IMPROPER_ROLLBACK_VERSION_NUMBER = 49
 };
 
 typedef enum _error_codes wtf_error;
@@ -124,7 +130,10 @@ struct _error_desc {
     {E_SERVER_FAILED_PUSH, "Couldn't successfully run push command because the server encountered an error. Please check server output to see what happened."},
     {E_IMPROPER_HISTORY_PARAMS, "Improper params for history command. Please follow the format of ./WTF history <project-name>"},
     {E_IMPROPER_DESTROY_PARAMS, "Improper params for destroy command. Please follow the format of ./WTF destroy <project-name>"},
-    {E_IMPROPER_DESTROY_PROJECT_NAME, "Improper project name provided for destroy. Project names cannot contain ':'."}
+    {E_IMPROPER_DESTROY_PROJECT_NAME, "Improper project name provided for destroy. Project names cannot contain ':'."},
+    {E_IMPROPER_ROLLBACK_PARAMS, "Improper params for rollback command. Please follow the format of ./WTF rollback <project-name> <version-number>"},
+    {E_IMPROPER_ROLLBACK_PROJECT_NAME, "Improper project name provided for rollback. Project names cannot contain ':'."},
+    {E_IMPROPER_ROLLBACK_VERSION_NUMBER, "Improper version number provided, value must be >= 1"}
 
 };
 
@@ -181,6 +190,9 @@ int wtf_get_current_version(char *);
 
 //Function Prototype for commit
 int wtf_commit(char *);
+
+//Function Prototype for rollback
+int wtf_rollback(char *, char *);
 
 //Function Prototype for fetching the server .Manifest and populating Manifest struct
 Manifest *fetch_server_manifest(char *);

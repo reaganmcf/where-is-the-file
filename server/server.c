@@ -25,7 +25,7 @@ pthread_mutex_t lock;
 int main(int argc, char **argv) {
   //Check if only a port is passed in as a param as it should
   if (argc == 1 || argc > 2) {
-    wtf_perror(E_IMPROPER_PARAMS, 1);
+    wtf_perror(E_IMPROPER_PARAMS, FATAL_ERROR);
   }
 
   //Now, let's do some setup and start the server
@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
   //Create socket
   sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (sock <= 0) {
-    wtf_perror(E_ERROR_MAKING_SOCKET, 1);
+    wtf_perror(E_ERROR_MAKING_SOCKET, FATAL_ERROR);
   }
 
   SOCKET_FD = sock;
@@ -48,16 +48,16 @@ int main(int argc, char **argv) {
   address.sin_addr.s_addr = INADDR_ANY;
   address.sin_port = htons(port);
   if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in)) < 0) {
-    wtf_perror(E_ERROR_BINDING_SOCKET_TO_PORT, 1);
+    wtf_perror(E_ERROR_BINDING_SOCKET_TO_PORT, FATAL_ERROR);
   }
 
   if (listen(sock, 100) < 0) {
-    wtf_perror(E_CANNOT_LISTEN_TO_PORT, 1);
+    wtf_perror(E_CANNOT_LISTEN_TO_PORT, FATAL_ERROR);
   }
 
   //setup mutex
   if (pthread_mutex_init(&lock, NULL) != 0) {
-    wtf_perror(E_CANNOT_INIT_MUTEX, 1);
+    wtf_perror(E_CANNOT_INIT_MUTEX, FATAL_ERROR);
   }
 
   printf("Server has started up Successfully. Listening for Connections...\n");
@@ -159,9 +159,9 @@ void *wtf_process(void *pointer) {
     project_name = strncpy(project_name, buffer, project_name_size);
     char *ret = wtf_server_get_current_version(project_name);
     if (ret[0] == '5') {
-      wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+      wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     } else if (ret[0] == '7') {
-      wtf_perror(E_PROJECT_DOESNT_EXIST, 0);
+      wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
     }
     //Success! Write back the message
     write(connection->socket, ret, strlen(ret));
@@ -295,13 +295,13 @@ int wtf_server_destroy_project(char *project_name) {
     }
     closedir(d);
   } else {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   if (name_exists == 0) {
-    wtf_perror(E_PROJECT_DOESNT_EXIST, 0);
+    wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
     pthread_mutex_unlock(&lock);
     return E_PROJECT_DOESNT_EXIST;
   }
@@ -348,7 +348,7 @@ char *wtf_server_get_history(char *project_name) {
     }
     closedir(d);
   } else {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     sprintf(ret, "2");
     free(buffer);
     free(mid_buffer);
@@ -356,7 +356,7 @@ char *wtf_server_get_history(char *project_name) {
   }
 
   if (name_exists == 0) {
-    wtf_perror(E_PROJECT_DOESNT_EXIST, 0);
+    wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
     sprintf(ret, "3");
     free(buffer);
     free(mid_buffer);
@@ -378,7 +378,7 @@ char *wtf_server_get_history(char *project_name) {
   int fd = open(buffer, O_RDWR);
 
   if (fd == -1) {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     sprintf(ret, "2");
     free(buffer);
     free(mid_buffer);
@@ -453,7 +453,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     free(mid_buffer);
     free(buffer);
     pthread_mutex_unlock(&lock);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
   }
 
@@ -635,7 +635,7 @@ char *wtf_server_write_commit(char *project_name, char *commit) {
   int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
   if (fd == -1) {
     free(buffer);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, NON_FATAL_ERROR);
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_NEW_COMMIT);
     return buff;
   }
@@ -643,7 +643,7 @@ char *wtf_server_write_commit(char *project_name, char *commit) {
   if (n <= 0) {
     free(buffer);
     close(fd);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_NEW_COMMIT, NON_FATAL_ERROR);
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_NEW_COMMIT);
     return buff;
   }
@@ -683,13 +683,13 @@ int wtf_server_create_project(char *project_name) {
     }
     closedir(d);
   } else {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   if (name_exists == 1) {
-    wtf_perror(E_PROJECT_ALREADY_EXISTS, 0);
+    wtf_perror(E_PROJECT_ALREADY_EXISTS, NON_FATAL_ERROR);
     pthread_mutex_unlock(&lock);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
@@ -702,7 +702,7 @@ int wtf_server_create_project(char *project_name) {
   sprintf(path, "./Projects/%s/.Manifest", project_name);
   int fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
   if (fd == -1) {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     free(path);
     close(fd);
     //unlock
@@ -717,7 +717,7 @@ int wtf_server_create_project(char *project_name) {
   int num_bytes = write(fd, init_data, strlen(init_data));
   printf("\t write finished \n");
   if (num_bytes <= 0) {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     free(path);
     close(fd);
     //unlock
@@ -904,7 +904,7 @@ Manifest *fetch_manifest(char *project_name) {
   char *path = malloc(150);
   sprintf(path, "./Projects/%s", project_name);
   DIR *dir = opendir(path);
-  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST, 1);
+  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
 
   //Fetch manifest
   char *buffer = malloc(200);
@@ -915,7 +915,7 @@ Manifest *fetch_manifest(char *project_name) {
   if (manifest_fd < 0) {
     free(buffer);
     free(builder);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 1);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
   }
 
   //Count number of lines in file
@@ -924,7 +924,7 @@ Manifest *fetch_manifest(char *project_name) {
     free(buffer);
     free(builder);
     close(manifest_fd);
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 1);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
   }
 
   Manifest *client_manifest = malloc(sizeof(Manifest));
@@ -1102,7 +1102,7 @@ int write_manifest(Manifest *manifest) {
   remove(buffer);
   int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
   if (fd == -1) {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     free(buffer);
     return 0;
   }
@@ -1110,7 +1110,7 @@ int write_manifest(Manifest *manifest) {
   //check if we can write
   int n = write(fd, manifest->project_name, strlen(manifest->project_name));
   if (n <= 0) {
-    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, 0);
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     free(buffer);
     return 0;
   }

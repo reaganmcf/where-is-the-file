@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   atexit(wtf_exit_handler);
   //First, we need to check the params and flags
   if (argc == 1) {
-    wtf_perror(E_IMPROPER_PARAMS_AND_FLAGS, 1);
+    wtf_perror(E_IMPROPER_PARAMS_AND_FLAGS, FATAL_ERROR);
   }
 
   char *command = argv[1];
@@ -33,13 +33,13 @@ int main(int argc, char **argv) {
   if (strcmp(command, "configure") == 0) {
     //Check for params
     if (argc != 4) {
-      wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, 1);
+      wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, FATAL_ERROR);
     }
 
     char *hostname = argv[2];
     char *port = argv[3];
     if (strlen(hostname) == 0 || strlen(port) == 0) {
-      wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, 1);
+      wtf_perror(E_IMPROPER_CONFIGURATION_PARAMS, FATAL_ERROR);
     }
 
     int result = wtf_configure_host(hostname, port);
@@ -47,12 +47,12 @@ int main(int argc, char **argv) {
       printf("Succesfully configured client.\n");
       return 0;
     } else {
-      wtf_perror(E_CONFIGURATION_WRITE_ERROR, 1);
+      wtf_perror(E_CONFIGURATION_WRITE_ERROR, FATAL_ERROR);
     }
   } else if (strcmp(command, "create") == 0) {
     //Check for params
     if (argc != 3) {
-      wtf_perror(E_IMPROPER_CREATE_PARAMS, 1);
+      wtf_perror(E_IMPROPER_CREATE_PARAMS, FATAL_ERROR);
     }
     char *project_name = argv[2];
     if (strlen(project_name) == 0 || strlen(project_name) >= 100) {
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     }
 
     if (safe == 0) {
-      wtf_perror(E_IMPROPER_CREATE_PROJECT_NAME, 1);
+      wtf_perror(E_IMPROPER_CREATE_PROJECT_NAME, FATAL_ERROR);
     }
 
     //All ready, create a connection handler and call server
@@ -78,13 +78,13 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "add") == 0) {
     //Check for params
     if (argc != 4) {
-      wtf_perror(E_IMPROPER_ADD_PARAMS, 1);
+      wtf_perror(E_IMPROPER_ADD_PARAMS, FATAL_ERROR);
     }
 
     char *project_name = argv[2];
     char *file = argv[3];
     if (strlen(project_name) == 0 || strlen(file) == 0) {
-      wtf_perror(E_IMPROPER_ADD_PARAMS, 1);
+      wtf_perror(E_IMPROPER_ADD_PARAMS, FATAL_ERROR);
     }
 
     int result = wtf_add(project_name, file);
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "currentversion") == 0) {
     //Check for params
     if (argc != 3) {
-      wtf_perror(E_IMPROPER_CURRENT_VERSION_PARAMS, 1);
+      wtf_perror(E_IMPROPER_CURRENT_VERSION_PARAMS, FATAL_ERROR);
     }
     char *project_name = argv[2];
 
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
     }
 
     if (safe == 0) {
-      wtf_perror(E_IMPROPER_CURRENT_VERSION_PROJECT_NAME, 1);
+      wtf_perror(E_IMPROPER_CURRENT_VERSION_PROJECT_NAME, FATAL_ERROR);
     }
 
     //All ready, create a connection handler and call the server
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "commit") == 0) {
     //Check for params
     if (argc != 3) {
-      wtf_perror(E_IMPROPER_COMMIT_PARAMS, 1);
+      wtf_perror(E_IMPROPER_COMMIT_PARAMS, FATAL_ERROR);
     }
     char *project_name = argv[2];
     //Check that the project name does not contain : which is our delimeter
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
     }
 
     if (safe == 0) {
-      wtf_perror(E_IMPROPER_COMMIT_PROJECT_NAME, 1);
+      wtf_perror(E_IMPROPER_COMMIT_PROJECT_NAME, FATAL_ERROR);
     }
 
     //All ready, create a connection handler and call server
@@ -147,13 +147,13 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "remove") == 0) {
     //Check for params
     if (argc != 4) {
-      wtf_perror(E_IMPROPER_REMOVE_PARAMS, 1);
+      wtf_perror(E_IMPROPER_REMOVE_PARAMS, FATAL_ERROR);
     }
 
     char *project_name = argv[2];
     char *file = argv[3];
     if (strlen(project_name) == 0 || strlen(file) == 0) {
-      wtf_perror(E_IMPROPER_REMOVE_PARAMS, 1);
+      wtf_perror(E_IMPROPER_REMOVE_PARAMS, FATAL_ERROR);
     }
 
     int result = wtf_remove(project_name, file);
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "push") == 0) {
     //Check for params
     if (argc != 3) {
-      wtf_perror(E_IMPROPER_PUSH_PARAMS, 1);
+      wtf_perror(E_IMPROPER_PUSH_PARAMS, FATAL_ERROR);
     }
     char *project_name = argv[2];
 
@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
     }
 
     if (safe == 0) {
-      wtf_perror(E_IMPROPER_PUSH_PROJECT_NAME, 1);
+      wtf_perror(E_IMPROPER_PUSH_PROJECT_NAME, FATAL_ERROR);
     }
 
     //All ready, create a connection handler and call the server
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "history") == 0) {
     //Check for params
     if (argc != 3) {
-      wtf_perror(E_IMPROPER_HISTORY_PARAMS, 1);
+      wtf_perror(E_IMPROPER_HISTORY_PARAMS, FATAL_ERROR);
     }
 
     char *project_name = argv[2];
@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
     }
 
     if (safe == 0) {
-      wtf_perror(E_IMPROPER_CREATE_PROJECT_NAME, 1);
+      wtf_perror(E_IMPROPER_CREATE_PROJECT_NAME, FATAL_ERROR);
     }
 
     //All ready, create a connection handler and call server
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(command, "destroy") == 0) {
     //Check params
     if (argc != 3) {
-      wtf_perror(E_IMPROPER_DESTROY_PARAMS, 1);
+      wtf_perror(E_IMPROPER_DESTROY_PARAMS, FATAL_ERROR);
     }
 
     char *project_name = argv[2];
@@ -231,14 +231,46 @@ int main(int argc, char **argv) {
     }
 
     if (safe == 0) {
-      wtf_perror(E_IMPROPER_DESTROY_PROJECT_NAME, 1);
+      wtf_perror(E_IMPROPER_DESTROY_PROJECT_NAME, FATAL_ERROR);
     }
 
     //All ready, create a connection handler and call server
     int result = wtf_destroy(project_name);
 
+  } else if (strcmp(command, "rollback") == 0) {
+    //Check for params
+    if (argc != 4) {
+      wtf_perror(E_IMPROPER_ROLLBACK_PARAMS, FATAL_ERROR);
+    }
+
+    char *project_name = argv[2];
+
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':')
+        safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_ROLLBACK_PROJECT_NAME, FATAL_ERROR);
+    }
+
+    //Check that the version number casts to an int correctly. We can use atoi() since if atoi() fails it returns 0
+    //But, the min version number is 1 so 0 == fails
+    int version_num = atoi(argv[3]);
+    if (version_num == 0) {
+      //failed
+      wtf_perror(E_IMPROPER_ROLLBACK_VERSION_NUMBER, FATAL_ERROR);
+    }
+
+    //All ready, create connection handler and call server
+    int result = wtf_rollback(project_name, argv[3]);
+
   } else {
-    wtf_perror(E_NO_COMMAND_PROVIDED, 1);
+    wtf_perror(E_NO_COMMAND_PROVIDED, FATAL_ERROR);
   }
 
   // wtf_connection *connection = wtf_connect();
@@ -255,6 +287,47 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * Rollback command
+ * 
+ * Send the server the project name and version number and retrieve back the status code of the operation
+ * 
+ * Most of the work is done server side
+ * 
+ * Returns:
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_rollback(char *project_name, char *version_number) {
+  //Make a connection
+  wtf_connection *connection = wtf_connect();
+
+  //already confirmed that version_number is an int, but we want it as a string so we can format protocol correctly
+
+  char *buffer = malloc(200);
+  memset(buffer, 0, 200);
+  sprintf(buffer, "%d:%s:%d:%s:%d:%s", strlen(COMMAND_ROLLBACK_PROJECT), COMMAND_ROLLBACK_PROJECT, strlen(project_name), project_name, strlen(version_number), version_number);
+  int msg_size = strlen(buffer) + 1;
+  printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+  write(connection->socket, &msg_size, sizeof(int));
+  write(connection->socket, buffer, strlen(buffer) + 1);
+
+  //handle callback
+  memset(buffer, 0, 200);
+  read(connection->socket, buffer, 3);
+  int ret_status = atoi(buffer);
+  if (ret_status == 1) {
+    printf("Successfully reverted project to version %d on the server.\n", atoi(version_number));
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+  } else {
+    //error'd
+  }
+
+  return 1;
 }
 
 /**
@@ -296,12 +369,12 @@ int wtf_destroy(char *project_name) {
       free(buffer);
       close(connection->socket);
       free(connection);
-      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
+      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, FATAL_ERROR);
     } else {
       free(buffer);
       close(connection->socket);
       free(connection);
-      wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, 1);
+      wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, FATAL_ERROR);
     }
   }
 
@@ -358,10 +431,10 @@ int wtf_history(char *project_name) {
     free(connection);
     if (ret_buffer[0] == '2') {
       free(ret_buffer);
-      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
+      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, FATAL_ERROR);
     } else if (ret_buffer[0] == '3') {
       free(ret_buffer);
-      wtf_perror(E_SERVER_MANIFEST_ALREADY_EXISTS, 1);
+      wtf_perror(E_SERVER_MANIFEST_ALREADY_EXISTS, FATAL_ERROR);
     }
     return 0;
   }
@@ -389,7 +462,7 @@ int wtf_push(char *project_name) {
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     free(buffer);
-    wtf_perror(E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT, 1);
+    wtf_perror(E_CANNOT_PUSH_NO_COMMIT_ON_CLIENT, FATAL_ERROR);
   }
 
   char *commit_buffer = malloc(10000);
@@ -400,7 +473,7 @@ int wtf_push(char *project_name) {
     free_manifest(server_manifest);
     free(buffer);
     free(commit_buffer);
-    wtf_perror(E_CANNOT_READ_COMMIT, 1);
+    wtf_perror(E_CANNOT_READ_COMMIT, FATAL_ERROR);
   }
 
   int n = read(commit_fd, buffer, 1);
@@ -410,7 +483,7 @@ int wtf_push(char *project_name) {
     free(buffer);
     free(commit_buffer);
     close(commit_fd);
-    wtf_perror(E_CANNOT_READ_COMMIT, 1);
+    wtf_perror(E_CANNOT_READ_COMMIT, FATAL_ERROR);
   }
   while (n != 0) {
     sprintf(commit_buffer, "%s%c", commit_buffer, buffer[0]);
@@ -450,7 +523,7 @@ int wtf_push(char *project_name) {
         free_manifest(server_manifest);
         free(buffer);
         free(commit_buffer);
-        wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, 1);
+        wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, FATAL_ERROR);
       }
 
       n = read(fd, buffer, 1);
@@ -462,7 +535,7 @@ int wtf_push(char *project_name) {
         free_manifest(server_manifest);
         free(buffer);
         free(commit_buffer);
-        wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, 1);
+        wtf_perror(E_CANNOT_READ_FILES_IN_COMMIT, FATAL_ERROR);
       }
 
       while (n != 0) {
@@ -519,7 +592,7 @@ int wtf_push(char *project_name) {
     free(buffer);
     free_manifest(client_manifest);
     free_manifest(server_manifest);
-    wtf_perror(E_SERVER_FAILED_PUSH, 1);
+    wtf_perror(E_SERVER_FAILED_PUSH, FATAL_ERROR);
   }
 
   free(final_buffer);
@@ -569,7 +642,7 @@ int wtf_commit(char *project_name) {
       free(server_manifest);
       close(connection->socket);
       free(connection);
-      wtf_perror(E_CANNOT_READ_UPDATE_FILE, 1);
+      wtf_perror(E_CANNOT_READ_UPDATE_FILE, FATAL_ERROR);
     }
     n = read(fd, buffer, 1);
     if (n != 0) {
@@ -579,7 +652,7 @@ int wtf_commit(char *project_name) {
       free(server_manifest);
       close(connection->socket);
       free(connection);
-      wtf_perror(E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, 1);
+      wtf_perror(E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, FATAL_ERROR);
     }
   }
 
@@ -592,7 +665,7 @@ int wtf_commit(char *project_name) {
     free(server_manifest);
     close(connection->socket);
     free(connection);
-    wtf_perror(E_CANNOT_COMMIT_CONFLICT_EXISTS, 1);
+    wtf_perror(E_CANNOT_COMMIT_CONFLICT_EXISTS, FATAL_ERROR);
   }
 
   //Manifest Version Check
@@ -602,7 +675,7 @@ int wtf_commit(char *project_name) {
     free(server_manifest);
     close(connection->socket);
     free(connection);
-    wtf_perror(E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, 1);
+    wtf_perror(E_CANNOT_COMMIT_MISMATCHED_MANIFEST_VERSIONS, FATAL_ERROR);
   }
 
   //Rehash client's files
@@ -653,7 +726,7 @@ int wtf_commit(char *project_name) {
             free_manifest(client_manifest);
             close(connection->socket);
             free(connection);
-            wtf_perror(E_CANNOT_COMMIT_MUST_SYNCH_FIRST, 1);
+            wtf_perror(E_CANNOT_COMMIT_MUST_SYNCH_FIRST, FATAL_ERROR);
           }
         }
       }
@@ -744,7 +817,7 @@ int wtf_commit(char *project_name) {
     free(connection);
     free_manifest(server_manifest);
     free_manifest(client_manifest);
-    wtf_perror(E_CANNOT_WRITE_COMMIT, 1);
+    wtf_perror(E_CANNOT_WRITE_COMMIT, FATAL_ERROR);
   }
   n = write(fd, commit_buffer, strlen(commit_buffer));
   if (n <= 0) {
@@ -756,7 +829,7 @@ int wtf_commit(char *project_name) {
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     close(fd);
-    wtf_perror(E_CANNOT_WRITE_COMMIT, 1);
+    wtf_perror(E_CANNOT_WRITE_COMMIT, FATAL_ERROR);
   }
 
   //.Commit written, send it to the server
@@ -775,7 +848,7 @@ int wtf_commit(char *project_name) {
     printf("Successfully sent .Commit to the Server\n");
   } else {
     //error checks handling here
-    wtf_perror(E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, 0);
+    wtf_perror(E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, NON_FATAL_ERROR);
   }
 
   //free and return
@@ -810,7 +883,7 @@ int wtf_remove(char *project_name, char *file) {
   if (index == -1) {
     //Doesn't exist in manifest
     free_manifest(client_manifest);
-    wtf_perror(E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, 1);
+    wtf_perror(E_REMOVE_PROVIDED_FILE_NOT_IN_MANIFEST, FATAL_ERROR);
   }
 
   free(client_manifest->files[index]->file_path);
@@ -836,7 +909,7 @@ int write_manifest(Manifest *manifest) {
   remove(buffer);
   int fd = open(buffer, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
   if (fd == -1) {
-    wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 0);
+    wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, NON_FATAL_ERROR);
     free(buffer);
     return 0;
   }
@@ -844,7 +917,7 @@ int write_manifest(Manifest *manifest) {
   //check if we can write
   int n = write(fd, manifest->project_name, strlen(manifest->project_name));
   if (n <= 0) {
-    wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 0);
+    wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, NON_FATAL_ERROR);
     free(buffer);
     return 0;
   }
@@ -989,13 +1062,13 @@ Manifest *fetch_server_manifest(char *project_name) {
     free(buffer);
     close(connection->socket);
     free(connection);
-    wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, 1);
+    wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, FATAL_ERROR);
   } else {
     free(ret_string);
     free(buffer);
     close(connection->socket);
     free(connection);
-    wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 1);
+    wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, FATAL_ERROR);
   }
 }
 
@@ -1009,7 +1082,7 @@ Manifest *fetch_server_manifest(char *project_name) {
 Manifest *fetch_client_manifest(char *project_name) {
   //First check that the project exists on the client
   DIR *dir = opendir(project_name);
-  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST_ON_CLIENT, 1);
+  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST_ON_CLIENT, FATAL_ERROR);
 
   //Fetch manifest
   char *buffer = malloc(200);
@@ -1020,16 +1093,16 @@ Manifest *fetch_client_manifest(char *project_name) {
   if (manifest_fd < 0) {
     free(buffer);
     free(builder);
-    wtf_perror(E_CANNOT_READ_MANIFEST, 1);
+    wtf_perror(E_CANNOT_READ_MANIFEST, FATAL_ERROR);
   }
 
   //Count number of lines in file
-  int n = read(manifest_fd, buffer, 1);
+  int n = read(manifest_fd, buffer, FATAL_ERROR);
   if (n <= 0) {
     free(buffer);
     free(builder);
     close(manifest_fd);
-    wtf_perror(E_CANNOT_READ_MANIFEST, 1);
+    wtf_perror(E_CANNOT_READ_MANIFEST, FATAL_ERROR);
   }
 
   Manifest *client_manifest = malloc(sizeof(Manifest));
@@ -1170,10 +1243,10 @@ int wtf_get_current_version(char *project_name) {
 int wtf_add(char *project_name, char *file) {
   //First check that the project exists on the client
   DIR *dir = opendir(project_name);
-  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST_ON_CLIENT, 1);
+  if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST_ON_CLIENT, FATAL_ERROR);
 
   //Check if the file exists in the project
-  if (!isRegFile(file)) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, 1);
+  if (!isRegFile(file)) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, FATAL_ERROR);
 
   //check if file already exists in the manifest
   char *buffer = malloc(150);
@@ -1182,7 +1255,7 @@ int wtf_add(char *project_name, char *file) {
   file_entries[0] = malloc(200);
   sprintf(buffer, "%s/.Manifest", project_name);
   int manifest_fd = open(buffer, O_RDWR);
-  if (manifest_fd < 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
+  if (manifest_fd < 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, FATAL_ERROR);
 
   int n = 1;
   memset(buffer, 0, 150);
@@ -1224,7 +1297,7 @@ int wtf_add(char *project_name, char *file) {
 
       printf("temp_name extracted = '%s'\n", temp_name_buffer);
       if (strcmp(temp_name_buffer, file) == 0) {
-        wtf_perror(E_FILE_ALREADY_ADDED_TO_MANIFEST, 1);
+        wtf_perror(E_FILE_ALREADY_ADDED_TO_MANIFEST, FATAL_ERROR);
       }
     }
   }
@@ -1239,7 +1312,7 @@ int wtf_add(char *project_name, char *file) {
   hash = hash_file(file);
   sprintf(buffer, "\n~ A:%s:%d:%s:%s", file, 1, hash, "!");
   n = write(manifest_fd, buffer, strlen(buffer));
-  if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
+  if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, FATAL_ERROR);
 
   return 1;
 }
@@ -1252,11 +1325,11 @@ int wtf_add(char *project_name, char *file) {
  *  char* = Hash string
  */
 char *hash_file(char *path) {
-  if (access(path, F_OK) == -1) wtf_perror(E_FILE_DOESNT_EXIST, 1);
+  if (access(path, F_OK) == -1) wtf_perror(E_FILE_DOESNT_EXIST, FATAL_ERROR);
   char *file_contents_buffer = malloc(10000);
   char *char_buffer = malloc(1);
   int file_fd = open(path, O_RDONLY);
-  if (file_fd < 0) wtf_perror(E_CANNOT_READ_FILE, 1);
+  if (file_fd < 0) wtf_perror(E_CANNOT_READ_FILE, FATAL_ERROR);
   int n = 1;
   int cap = 10000;
   while (n != 0 && cap != 0) {
@@ -1265,7 +1338,7 @@ char *hash_file(char *path) {
     cap--;
   }
 
-  if (cap == 0 && n != 0) wtf_perror(E_FILE_MAX_LENGTH, 0);
+  if (cap == 0 && n != 0) wtf_perror(E_FILE_MAX_LENGTH, NON_FATAL_ERROR);
 
   SHA_CTX ctx;
   SHA1_Init(&ctx);
@@ -1322,14 +1395,14 @@ int wtf_create_project(char *project_name) {
     if (fd == -1) {
       free(buffer);
       free(path);
-      wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
+      wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, FATAL_ERROR);
     }
     write(fd, project_name, strlen(project_name));
     n = write(fd, "\n1", 2);
     if (n < 1) {
       free(buffer);
       free(path);
-      wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, 1);
+      wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, FATAL_ERROR);
     }
 
     free(path);
@@ -1340,9 +1413,9 @@ int wtf_create_project(char *project_name) {
     return 1;
   } else {
     if (ret_status == 105) {
-      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, 0);
+      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, NON_FATAL_ERROR);
     } else {
-      wtf_perror(E_SERVER_MANIFEST_ALREADY_EXISTS, 0);
+      wtf_perror(E_SERVER_MANIFEST_ALREADY_EXISTS, NON_FATAL_ERROR);
     }
   }
 
@@ -1369,13 +1442,13 @@ wtf_connection *wtf_connect() {
     int fd = -1;
     fd = open(WTF_CONFIGURATION_FILE_PATH, O_RDONLY);
     if (fd == -1) {
-      wtf_perror(E_INVALID_CONFIGURATION, 1);
+      wtf_perror(E_INVALID_CONFIGURATION, FATAL_ERROR);
     }
     int num_bytes = 0;
     num_bytes = read(fd, buffer, 200);
     // printf("read %d bytes from .configuration\n", num_bytes);
     if (num_bytes <= 0) {
-      wtf_perror(E_INVALID_CONFIGURATION, 1);
+      wtf_perror(E_INVALID_CONFIGURATION, FATAL_ERROR);
     }
 
     //Load the configuration file's contents into 2 variables, port_buffer and hostname_buffer
@@ -1402,18 +1475,18 @@ wtf_connection *wtf_connect() {
   wtf_connection *connection = malloc(sizeof(wtf_connection));
   connection->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (socket <= 0) {
-    wtf_perror(E_CANNOT_CREATE_SOCKET, 1);
+    wtf_perror(E_CANNOT_CREATE_SOCKET, FATAL_ERROR);
   }
   connection->address.sin_family = AF_INET;
   connection->address.sin_port = htons(CONFIGURATION->port);
   connection->host = gethostbyname(CONFIGURATION->hostname);
   if (connection->host == NULL) {
-    wtf_perror(E_UNKNOWN_HOST, 1);
+    wtf_perror(E_UNKNOWN_HOST, FATAL_ERROR);
   }
   memcpy(&connection->address.sin_addr, connection->host->h_addr_list[0], connection->host->h_length);
 
   if (connect(connection->socket, (struct sockaddr *)&connection->address, sizeof(connection->address))) {
-    wtf_perror(E_CANNOT_CONNECT_TO_HOST, 1);
+    wtf_perror(E_CANNOT_CONNECT_TO_HOST, FATAL_ERROR);
   }
 
   //Socket is connected and everything, return it.

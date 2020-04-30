@@ -10,6 +10,8 @@
 #define OPCODE_DELETE 'D'
 #define OPCODE_MODIFY 'M'
 #define OPCODE_NONE 'N'
+#define NON_FATAL_ERROR 0
+#define FATAL_ERROR 1
 
 //Possible Command Strings for the Server
 const char *COMMAND_CREATE_PROJECT = "create_project";
@@ -18,6 +20,7 @@ const char *COMMAND_CREATE_COMMIT = "create_commit";
 const char *COMMAND_CREATE_PUSH = "create_push";
 const char *COMMAND_GET_HISTORY = "get_history";
 const char *COMMAND_DESTORY_PROJECT = "destroy_project";
+const char *COMMAND_ROLLBACK_PROJECT = "rollback_project";
 
 //Possible Error Codes for the Server
 enum _error_codes {
