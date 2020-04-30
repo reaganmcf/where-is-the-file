@@ -32,7 +32,8 @@ enum _error_codes {
   E_PROJECT_ALREADY_EXISTS = 6,
   E_PROJECT_DOESNT_EXIST = 7,
   E_CANNOT_INIT_MUTEX = 8,
-  E_CANNOT_READ_OR_WRITE_NEW_COMMIT = 9
+  E_CANNOT_READ_OR_WRITE_NEW_COMMIT = 9,
+  E_PROJECT_VERSION_DOESNT_EXIST = 10
 };
 
 typedef enum _error_codes wtf_error;
@@ -50,7 +51,8 @@ struct _error_desc {
     {E_PROJECT_ALREADY_EXISTS, "Project already exists with this name."},
     {E_PROJECT_DOESNT_EXIST, "Project doesn't exist on the server."},
     {E_CANNOT_INIT_MUTEX, "Cannot Initialize mutex lock."},
-    {E_CANNOT_READ_OR_WRITE_NEW_COMMIT, "Unable to read new .Commit to the project directory. Please check your permissions to this directory"}
+    {E_CANNOT_READ_OR_WRITE_NEW_COMMIT, "Unable to read new .Commit to the project directory. Please check your permissions to this directory"},
+    {E_PROJECT_VERSION_DOESNT_EXIST, "Current project version is <= provided project version number, cannot rollback to non-existent / current project."}
 
 };
 
@@ -115,6 +117,9 @@ char *wtf_server_get_history(char *);
 
 //Function Prototype for handling destory_project command
 int wtf_server_destroy_project(char *);
+
+//Function Prototype for handling rollback_project command
+int wtf_server_rollback_project(char *, int);
 
 //Function Prototype for fetching manifest on server side
 Manifest *fetch_manifest(char *);

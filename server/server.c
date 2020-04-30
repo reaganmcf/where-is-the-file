@@ -181,7 +181,10 @@ void *wtf_process(void *pointer) {
     int commit_buffer_size = atoi(buffer);
     while (buffer[0] != ':') buffer++;
     buffer++;
-    char *commit_buffer = malloc(commit_buffer_size);
+    printf("commit_buffer_size is %d\n", commit_buffer_size);
+    printf("buffer is %s\n", buffer);
+    char *commit_buffer = malloc(commit_buffer_size + 1);
+    memset(commit_buffer, 0, commit_buffer_size);
     strncpy(commit_buffer, buffer, commit_buffer_size);
     char *status = wtf_server_write_commit(project_name, commit_buffer);
     write(connection->socket, status, 3);
@@ -253,6 +256,29 @@ void *wtf_process(void *pointer) {
     write(connection->socket, ret_buffer, 3);
     free(project_name);
     free(ret_buffer);
+  } else if (strcmp(command, COMMAND_ROLLBACK_PROJECT) == 0) {
+    //Handle incoming message
+    int project_name_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *project_name = malloc(project_name_size + 1);
+    memset(project_name, 0, project_name_size + 1);
+    strncpy(project_name, buffer, project_name_size);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    int version_number_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *version_number_string = malloc(version_number_size + 1);
+    memset(version_number_string, 0, version_number_size + 1);
+    strncpy(version_number_string, buffer, version_number_size);
+    int version_number = atoi(version_number_string);
+
+    printf("\trollback %s %d\n", project_name, version_number);
+    int status = wtf_server_rollback_project(project_name, version_number);
+
+    free(project_name);
+    free(version_number_string);
   }
 
   //Close socket and cleanup
@@ -262,6 +288,72 @@ void *wtf_process(void *pointer) {
   len = 0;
   printf("\tFinished\n");
   pthread_exit(0);
+}
+
+/**
+ * wtf_server_rollback_project
+ * 
+ * Handler for the rollback_project directive
+ * 
+ * Rolls back the project to a particular version number by doing the following:
+ *  - delete all non .gz files in the repo
+ *  - delete all .gz files that have a version number larger than the one provided
+ *  - expand <project_name>_<version_number>.gz into the current dir
+ * 
+ * Returns
+ *  1 = Success
+ *  5 = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
+ *  7 = E_PROJECT_DOESNT_EXIST
+ *  X = E_PROJECT_VERSION_DOESNT_EXIST
+ */
+int wtf_server_rollback_project(char *project_name, int version_number) {
+  pthread_mutex_lock(&lock);
+
+  //First loop over directory and check if the project actually exists
+  DIR *d;
+  struct dirent *dir;
+  d = opendir("./Projects/");
+  int name_exists = 0;
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      if (!isRegFile(dir->d_name)) {
+        if (strcmp(dir->d_name, project_name) == 0) {
+          name_exists = 1;
+        }
+      }
+    }
+    closedir(d);
+  } else {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
+    pthread_mutex_unlock(&lock);
+    return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
+  }
+
+  if (name_exists == 0) {
+    wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
+    pthread_mutex_unlock(&lock);
+    return E_PROJECT_DOESNT_EXIST;
+  }
+
+  //Check that the version number provided is > current version number
+  Manifest *manifest = fetch_manifest(project_name);
+  if (manifest->version_number <= version_number) {
+    wtf_perror(E_PROJECT_VERSION_DOESNT_EXIST, NON_FATAL_ERROR);
+    free_manifest(manifest);
+    pthread_mutex_unlock(&lock);
+    return E_PROJECT_VERSION_DOESNT_EXIST;
+  }
+
+  //All good to go, first we need to delete all versions that are greater than the provided
+  char *buffer = malloc(200);
+  memset(buffer, 0, 200);
+  int i = version_number;
+  sprintf(buffer, "./Projects/%s/%s_%d", project_name, project_name, i);
+  while (isRegFile(buffer) == 1) {
+    printf("\tneed to remove %s\n", buffer);
+  }
+
+  pthread_mutex_unlock(&lock);
 }
 
 /**
@@ -540,6 +632,11 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
 
   printf("\tall commit ops made\n");
 
+  //delete current commit now that commit ops are made
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "rm ./Projects/%s/%s", project_name, target_commit_file_name);
+  system(buffer);
+
   memset(buffer, 0, 1000);
   sprintf(buffer, "./Projects/%s/.History", project_name);
   int history_fd = open(buffer, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
@@ -579,6 +676,10 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
         remove(buffer);
       }
       //create the file and write to it
+      //touch the file first because if its nested in dirs it will create dirs too
+      memset(mid_buffer, 0, 1000);
+      sprintf(mid_buffer, "file=%s && mkdir -p \"{file%/*} && tocuh \"$file\"", buffer);
+      printf("\ttouch buffer is %s\n", mid_buffer);
       fd = open(buffer, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
       if (fd == -1) {
         printf("couldn't create file %s\n", commit_ops[i]->file_path);
@@ -1125,7 +1226,7 @@ int write_manifest(Manifest *manifest) {
   //write all file entries
   int i;
   for (i = 0; i < manifest->file_count; i++) {
-    if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
+    //if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
     //Construct entry string
     memset(buffer, 0, 500);
     sprintf(buffer, "\n~ ");

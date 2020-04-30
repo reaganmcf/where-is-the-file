@@ -528,7 +528,7 @@ int wtf_push(char *project_name) {
 
       n = read(fd, buffer, 1);
       memset(mid_buffer, 0, 10000);
-      if (n != 1) {
+      if (n == -1) {
         free(file_buffer);
         free(mid_buffer);
         free_manifest(client_manifest);
@@ -707,6 +707,7 @@ int wtf_commit(char *project_name) {
   }
 
   char *commit_buffer = malloc(500000);
+  memset(commit_buffer, 0, 500000);
   int total_writes = 0;
 
   //Check if client needs to sync first
@@ -943,7 +944,7 @@ int write_manifest(Manifest *manifest) {
     if (manifest->files[i]->seen_by_server == 0) {
       sprintf(buffer, "%s:!", buffer);
     }
-    sprintf(buffer, "%s:", buffer);
+    sprintf(buffer, "%s", buffer);
     write(fd, buffer, strlen(buffer));
   }
 
@@ -1161,9 +1162,10 @@ Manifest *fetch_client_manifest(char *project_name) {
       sprintf(builder, "%s%c", builder, buffer[0]);
       read(manifest_fd, buffer, 1);
     }
-    // printf("\tFile path: %s\n", builder);
-    client_manifest->files[j]->file_path = malloc(strlen(builder));
-    strcpy(client_manifest->files[j]->file_path, builder);
+    printf("\tFile path: %s\n", builder);
+    client_manifest->files[j]->file_path = malloc(strlen(builder) + 1);
+    memset(client_manifest->files[j]->file_path, 0, strlen(builder));
+    strncpy(client_manifest->files[j]->file_path, builder, strlen(builder));
 
     memset(buffer, 0, 200);
     memset(builder, 0, 200);
@@ -1325,20 +1327,28 @@ int wtf_add(char *project_name, char *file) {
  *  char* = Hash string
  */
 char *hash_file(char *path) {
+  printf("attempting to hash %s\n", path);
   if (access(path, F_OK) == -1) wtf_perror(E_FILE_DOESNT_EXIST, FATAL_ERROR);
-  char *file_contents_buffer = malloc(10000);
+  char *file_contents_buffer = malloc(100000);
+  memset(file_contents_buffer, 0, 100000);
   char *char_buffer = malloc(1);
   int file_fd = open(path, O_RDONLY);
   if (file_fd < 0) wtf_perror(E_CANNOT_READ_FILE, FATAL_ERROR);
   int n = 1;
-  int cap = 10000;
+  int cap = 100000;
   while (n != 0 && cap != 0) {
     n = read(file_fd, char_buffer, 1);
-    file_contents_buffer[10000 - cap] = char_buffer[0];
+    if (strlen(char_buffer) == 0) {
+      n == 0;
+      char_buffer[0] = '\0';
+    }
+    sprintf(file_contents_buffer, "%s%c", file_contents_buffer, char_buffer[0]);
     cap--;
   }
 
   if (cap == 0 && n != 0) wtf_perror(E_FILE_MAX_LENGTH, NON_FATAL_ERROR);
+
+  printf("file contents buffer is %s\n", file_contents_buffer);
 
   SHA_CTX ctx;
   SHA1_Init(&ctx);
