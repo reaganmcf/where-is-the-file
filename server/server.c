@@ -299,8 +299,7 @@ void *wtf_process(void *pointer) {
  * Handler for the rollback_project directive
  * 
  * Rolls back the project to a particular version number by doing the following:
- *  - delete all non .gz files in the repo
- *  - delete all .gz files that have a version number larger than the one provided
+ *  - delete all other files besides <project_name>_<version_number>.gz
  *  - expand <project_name>_<version_number>.gz into the current dir
  * 
  * Returns
@@ -347,16 +346,78 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
     return E_PROJECT_VERSION_DOESNT_EXIST;
   }
 
-  //All good to go, first we need to delete all versions that are greater than the provided
+  //All good to go
+
+  //move history out of the dir
   char *buffer = malloc(200);
   memset(buffer, 0, 200);
-  int i = version_number;
-  sprintf(buffer, "./Projects/%s/%s_%d", project_name, project_name, i);
-  while (isRegFile(buffer) == 1) {
-    printf("\tneed to remove %s\n", buffer);
-  }
+  sprintf(buffer, "mv ./Projects/%s/.History ./Projects", project_name);
+  system(buffer);
 
+  //move the backup out of the dir
+  memset(buffer, 0, 200);
+  sprintf(buffer, "mv ./Projects/%s/%s_%d.gz ./Projects/", project_name, project_name, version_number);
+  system(buffer);
+
+  //delete all files inside the project folder
+  memset(buffer, 0, 200);
+  sprintf(buffer, "rm -r ./Projects/%s", project_name);
+  system(buffer);
+
+  //create the project folder again
+  memset(buffer, 0, 200);
+  sprintf(buffer, "mkdir ./Projects/%s", project_name);
+  system(buffer);
+
+  //move back the backup
+  memset(buffer, 0, 200);
+  sprintf(buffer, "mv ./Projects/%s_%d.gz ./Projects/%s/", project_name, version_number, project_name);
+  system(buffer);
+
+  //untar the backup
+  memset(buffer, 0, 200);
+  sprintf(buffer, "tar -xf ./Projects/%s/%s_%d.gz -C ./Projects/", project_name, project_name, version_number, project_name);
+  system(buffer);
+
+  //move files in untar to current dir
+  memset(buffer, 0, 200);
+  sprintf(buffer, "cp -rf ./Projects/Projects/%s_%d/. ./Projects/%s/", project_name, version_number, project_name);
+  system(buffer);
+
+  //delete untar dirs
+  memset(buffer, 0, 200);
+  sprintf(buffer, "rm -r ./Projects/Projects/", buffer);
+  system(buffer);
+
+  //move .History back
+  memset(buffer, 0, 200);
+  sprintf(buffer, "mv ./Projects/.History ./Projects/%s/.History", project_name);
+  system(buffer);
+
+  //delete backup
+  memset(buffer, 0, 200);
+  sprintf(buffer, "rm ./Projects/%s/%s_%d.gz", project_name, project_name, version_number);
+  system(buffer);
+
+  //write to history
+  memset(buffer, 0, 200);
+  sprintf(buffer, "./Projects/%s/.History", project_name);
+  int fd = open(buffer, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
+  if (fd == -1) {
+    printf("\tcannot create or open .History for some reason\n");
+  } else {
+    memset(buffer, 0, 200);
+    sprintf(buffer, "Rolled back to version %d\n", version_number);
+    printf("Writing out to .History %s\n", buffer);
+    write(fd, buffer, strlen(buffer));
+  }
+  close(fd);
+
+  printf("Successfully rolled back project\n");
+  free(buffer);
   pthread_mutex_unlock(&lock);
+
+  return 1;
 }
 
 /**
@@ -1000,6 +1061,7 @@ void wtf_perror(wtf_error e, int should_exit) {
  * 
  */
 char *hash_string(char *string) {
+  printf("\thashing %s\n", string);
   SHA_CTX ctx;
   SHA1_Init(&ctx);
   SHA1_Update(&ctx, string, strlen(string));

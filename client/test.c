@@ -1,11 +1,12 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-const int PORT_NUMBER = 5000;
-
 int main(int argc, char** argv) {
+  int PORT_NUMBER = (rand() % (10000 - 1000 + 1)) + 1000;
+
   char* buffer = malloc(500);
 
   memset(buffer, 0, 500);
@@ -21,23 +22,32 @@ int main(int argc, char** argv) {
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "./WTF create example_project");
+  sprintf(buffer, "./WTF destroy project");
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "touch ./example_project/file1");
+  sprintf(buffer, "./WTF create project");
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "echo some text > ./example_project/file1");
+  sprintf(buffer, "touch ./project/file1");
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "./WTF add example_project example_project/file1");
+  sprintf(buffer, "echo some text > ./project/file1");
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "./WTF commit example_project");
+  sprintf(buffer, "./WTF add project project/file1");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "./WTF commit project");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "./WTF push project");
+  system(buffer);
 
   free(buffer);
 
