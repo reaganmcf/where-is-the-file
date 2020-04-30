@@ -318,13 +318,25 @@ int wtf_rollback(char *project_name, char *version_number) {
   memset(buffer, 0, 200);
   read(connection->socket, buffer, 3);
   int ret_status = atoi(buffer);
+  printf("ret_status = %d\n", ret_status);
   if (ret_status == 1) {
     printf("Successfully reverted project to version %d on the server.\n", atoi(version_number));
     free(buffer);
     close(connection->socket);
     free(connection);
+    return 1;
   } else {
     //error'd
+    free(buffer);
+    close(connection->socket);
+    free(connection);
+    if (ret_status == 5) {
+      wtf_perror(E_SERVER_IMPROPER_PERMISSIONS, FATAL_ERROR);
+    } else if (ret_status == 7) {
+      wtf_perror(E_SERVER_PROJECT_DOESNT_EXIST, FATAL_ERROR);
+    } else {
+      wtf_perror(E_SERVER_PROJECT_VERSION_DOESNT_EXIST, FATAL_ERROR);
+    }
   }
 
   return 1;
@@ -1452,12 +1464,14 @@ wtf_connection *wtf_connect() {
     int fd = -1;
     fd = open(WTF_CONFIGURATION_FILE_PATH, O_RDONLY);
     if (fd == -1) {
+      free(buffer);
       wtf_perror(E_INVALID_CONFIGURATION, FATAL_ERROR);
     }
     int num_bytes = 0;
     num_bytes = read(fd, buffer, 200);
     // printf("read %d bytes from .configuration\n", num_bytes);
     if (num_bytes <= 0) {
+      free(buffer);
       wtf_perror(E_INVALID_CONFIGURATION, FATAL_ERROR);
     }
 
@@ -1485,17 +1499,23 @@ wtf_connection *wtf_connect() {
   wtf_connection *connection = malloc(sizeof(wtf_connection));
   connection->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (socket <= 0) {
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_CREATE_SOCKET, FATAL_ERROR);
   }
   connection->address.sin_family = AF_INET;
   connection->address.sin_port = htons(CONFIGURATION->port);
   connection->host = gethostbyname(CONFIGURATION->hostname);
   if (connection->host == NULL) {
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_UNKNOWN_HOST, FATAL_ERROR);
   }
   memcpy(&connection->address.sin_addr, connection->host->h_addr_list[0], connection->host->h_length);
 
   if (connect(connection->socket, (struct sockaddr *)&connection->address, sizeof(connection->address))) {
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_CONNECT_TO_HOST, FATAL_ERROR);
   }
 

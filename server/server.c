@@ -279,7 +279,11 @@ void *wtf_process(void *pointer) {
 
     printf("\trollback %s %d\n", project_name, version_number);
     int status = wtf_server_rollback_project(project_name, version_number);
-
+    char *ret_buffer = malloc(3);
+    memset(ret_buffer, 0, 3);
+    sprintf(ret_buffer, "%d", status);
+    write(connection->socket, ret_buffer, 3);
+    free(ret_buffer);
     free(project_name);
     free(version_number_string);
   }
@@ -306,7 +310,7 @@ void *wtf_process(void *pointer) {
  *  1 = Success
  *  5 = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
  *  7 = E_PROJECT_DOESNT_EXIST
- *  X = E_PROJECT_VERSION_DOESNT_EXIST
+ *  10 = E_PROJECT_VERSION_DOESNT_EXIST
  */
 int wtf_server_rollback_project(char *project_name, int version_number) {
   pthread_mutex_lock(&lock);
@@ -341,8 +345,8 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
   Manifest *manifest = fetch_manifest(project_name);
   if (manifest->version_number <= version_number) {
     wtf_perror(E_PROJECT_VERSION_DOESNT_EXIST, NON_FATAL_ERROR);
-    free_manifest(manifest);
     pthread_mutex_unlock(&lock);
+    free_manifest(manifest);
     return E_PROJECT_VERSION_DOESNT_EXIST;
   }
 
@@ -416,6 +420,7 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
   printf("Successfully rolled back project\n");
   free(buffer);
   pthread_mutex_unlock(&lock);
+  free_manifest(manifest);
 
   return 1;
 }
@@ -617,6 +622,12 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   print_manifest(manifest, 0);
   int version_number = manifest->version_number;
 
+  //delete current commit now that commit ops are made
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "rm ./Projects/%s/%s", project_name, target_commit_file_name);
+  printf("%s\n", buffer);
+  system(buffer);
+
   //Now that all other commits are expired, lets duplicate the repo and append the version number to it so we can still access it later in rollback
 
   //Duplicate repo
@@ -698,11 +709,6 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   }
 
   printf("\tall commit ops made\n");
-
-  //delete current commit now that commit ops are made
-  memset(buffer, 0, 1000);
-  sprintf(buffer, "rm ./Projects/%s/%s", project_name, target_commit_file_name);
-  system(buffer);
 
   memset(buffer, 0, 1000);
   sprintf(buffer, "./Projects/%s/.History", project_name);

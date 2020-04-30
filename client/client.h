@@ -75,7 +75,8 @@ enum _error_codes {
   E_IMPROPER_DESTROY_PROJECT_NAME = 46,
   E_IMPROPER_ROLLBACK_PARAMS = 47,
   E_IMPROPER_ROLLBACK_PROJECT_NAME = 48,
-  E_IMPROPER_ROLLBACK_VERSION_NUMBER = 49
+  E_IMPROPER_ROLLBACK_VERSION_NUMBER = 49,
+  E_SERVER_PROJECT_VERSION_DOESNT_EXIST = 50
 };
 
 typedef enum _error_codes wtf_error;
@@ -133,7 +134,8 @@ struct _error_desc {
     {E_IMPROPER_DESTROY_PROJECT_NAME, "Improper project name provided for destroy. Project names cannot contain ':'."},
     {E_IMPROPER_ROLLBACK_PARAMS, "Improper params for rollback command. Please follow the format of ./WTF rollback <project-name> <version-number>"},
     {E_IMPROPER_ROLLBACK_PROJECT_NAME, "Improper project name provided for rollback. Project names cannot contain ':'."},
-    {E_IMPROPER_ROLLBACK_VERSION_NUMBER, "Improper version number provided, value must be >= 1"}
+    {E_IMPROPER_ROLLBACK_VERSION_NUMBER, "Improper version number provided, value must be >= 1"},
+    {E_SERVER_PROJECT_VERSION_DOESNT_EXIST, "Provided project version is <= provided project version number on the server, cannot rollback to non-existent / current project."}
 
 };
 

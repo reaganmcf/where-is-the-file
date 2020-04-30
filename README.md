@@ -1,5 +1,16 @@
 # AsstLast
 
+## todos
+- checkout
+- update
+- upgrade
+- clientside `remove` can't free client_manifest without crash
+- clientside commit needs to be error checked and mem checked
+- handle pushing empty files
+- push() modify doesnt work because manifests have mismatched hashes
+- handle push() D on nested dirs
+
+
 ### Protocol
 
 The protocol used between the server and the client is as follows
