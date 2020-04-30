@@ -248,7 +248,7 @@ void *wtf_process(void *pointer) {
     int status = wtf_server_destroy_project(project_name);
     char *ret_buffer = malloc(3);
     memset(ret_buffer, 0, 3);
-    sprintf(ret_buffer, "%d:", status);
+    sprintf(ret_buffer, "%d", status);
     printf("\tSending back {%s} to the client\n", ret_buffer);
     write(connection->socket, ret_buffer, 3);
     free(project_name);

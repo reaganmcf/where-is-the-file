@@ -285,7 +285,7 @@ int wtf_destroy(char *project_name) {
   read(connection->socket, buffer, 3);
   int ret_status = atoi(buffer);
   if (ret_status == 1) {
-    printf("Successfully destoryed the project '%s' on the server.\n");
+    printf("Successfully destoryed the project '%s' on the server.\n", project_name);
     free(buffer);
     close(connection->socket);
     free(connection);
@@ -1300,6 +1300,8 @@ int wtf_create_project(char *project_name) {
   //Establish connection to the server
   wtf_connection *connection = wtf_connect();
   char *buffer = malloc(100);
+  memset(buffer, 0, 100);
+
   sprintf(buffer, "14:create_project:%d:%s", strlen(project_name) + 1, project_name);
   int msg_size = strlen(buffer) + 1;
   printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
