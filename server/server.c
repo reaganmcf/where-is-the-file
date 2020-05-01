@@ -1069,7 +1069,7 @@ void wtf_perror(wtf_error e, int should_exit) {
  * 
  */
 char *hash_string(char *string) {
-  printf("\thashing %s strlen is %d\n", string, strlen(string));
+  // printf("\thashing %s strlen is %d\n", string, strlen(string));
   unsigned char tmphash[SHA_DIGEST_LENGTH];
   memset(tmphash, 0, SHA_DIGEST_LENGTH);
   SHA1(string, strlen(string), tmphash);
@@ -1080,7 +1080,7 @@ char *hash_string(char *string) {
     sprintf((char *)&(hash[i * 2]), "%02x", tmphash[i]);
   }
 
-  printf("final hash is %s\n", hash);
+  // printf("final hash is %s\n", hash);
 
   return hash;
 }

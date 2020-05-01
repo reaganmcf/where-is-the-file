@@ -79,7 +79,9 @@ enum _error_codes {
   E_IMPROPER_ROLLBACK_VERSION_NUMBER = 49,
   E_SERVER_PROJECT_VERSION_DOESNT_EXIST = 50,
   E_IMPROPER_UPDATE_PARAMS = 51,
-  E_IMPROPER_UPDATE_PROJECT_NAME = 52
+  E_IMPROPER_UPDATE_PROJECT_NAME = 52,
+  E_CANNOT_UPDATE_CONFLICT_EXISTS = 53,
+  E_CANNOT_WRITE_UPDATE = 54
 };
 
 typedef enum _error_codes wtf_error;
@@ -140,7 +142,9 @@ struct _error_desc {
     {E_IMPROPER_ROLLBACK_VERSION_NUMBER, "Improper version number provided, value must be >= 1"},
     {E_SERVER_PROJECT_VERSION_DOESNT_EXIST, "Provided project version is <= provided project version number on the server, cannot rollback to non-existent / current project."},
     {E_IMPROPER_UPDATE_PARAMS, "Improper params for update command. Please follow the format of ./WTF update <project-name>"},
-    {E_IMPROPER_UPDATE_PROJECT_NAME, "Improper project name provided for update. Project names cannot contain ':'"}
+    {E_IMPROPER_UPDATE_PROJECT_NAME, "Improper project name provided for update. Project names cannot contain ':'"},
+    {E_CANNOT_UPDATE_CONFLICT_EXISTS, "Cannot update because conflicts exist that must be resolved first."},
+    {E_CANNOT_WRITE_UPDATE, "Improper permissions to write to .Update"}
 
 };
 
