@@ -269,6 +269,27 @@ int main(int argc, char **argv) {
     //All ready, create connection handler and call server
     int result = wtf_rollback(project_name, argv[3]);
 
+  } else if (strcmp(command, "update") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_UPDATE_PARAMS, FATAL_ERROR);
+    }
+    char *project_name = argv[2];
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_UPDATE_PROJECT_NAME, FATAL_ERROR);
+    }
+
+    //All ready, create a connection handler and call server
+    int result = wtf_update(project_name);
+
   } else {
     wtf_perror(E_NO_COMMAND_PROVIDED, FATAL_ERROR);
   }
@@ -287,6 +308,24 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * Update command
+ * 
+ * Basically is commit but the other way around
+ * 
+ * Returns
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_update(char *project_name) {
+  Manifest *server_manifest = fetch_server_manifest(project_name);
+  Manifest *client_manifest = fetch_client_manifest(project_name);
+  //If we get here then project exists on client and server, and also means we can establish a connection
+
+  //Full Success Case
+  //server and client .Manifests are the same version
 }
 
 /**
@@ -1254,10 +1293,14 @@ int wtf_get_current_version(char *project_name) {
  *  0 = Failure
  *  1 = Success
  */
-int wtf_add(char *project_name, char *file) {
+int wtf_add(char *project_name, char *file_name) {
   //First check that the project exists on the client
   DIR *dir = opendir(project_name);
   if (!dir) wtf_perror(E_PROJECT_DOESNT_EXIST_ON_CLIENT, FATAL_ERROR);
+  //append the project name to the file
+  char *file = malloc(strlen(project_name) + strlen(file_name) + 10);
+  memset(file, 0, strlen(project_name) + strlen(file_name) + 10);
+  sprintf(file, "./%s/%s", project_name, file_name);
 
   //Check if the file exists in the project
   if (!isRegFile(file)) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, FATAL_ERROR);
@@ -1301,9 +1344,9 @@ int wtf_add(char *project_name, char *file) {
   for (i = 0; i < 1000; i++) {
     j = 0;
     if (file_entries[i] != NULL && strlen(file_entries[i]) != 0) {
-      printf("[%d] - %s\n", i, file_entries[i]);
+      // printf("[%d] - %s\n", i, file_entries[i]);
       while (file_entries[i][j + 2] != ':') {
-        printf("\t file_entries[i][j+2] = %c\n", file_entries[i][j + 2]);
+        // printf("\t file_entries[i][j+2] = %c\n", file_entries[i][j + 2]);
         temp_name_buffer[j] = file_entries[i][j + 2];
         j++;
       }
@@ -1328,6 +1371,11 @@ int wtf_add(char *project_name, char *file) {
   n = write(manifest_fd, buffer, strlen(buffer));
   if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, FATAL_ERROR);
 
+  free(file);
+  closedir(dir);
+  free(hash);
+  free(buffer);
+  free(temp_name_buffer);
   return 1;
 }
 
