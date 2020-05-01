@@ -286,6 +286,19 @@ void *wtf_process(void *pointer) {
     free(ret_buffer);
     free(project_name);
     free(version_number_string);
+  } else if (strcmp(command, COMMAND_GET_FILE_CONTENTS) == 0) {
+    //Handle incoming message
+    int file_path_size = atoi(buffer);
+    while (buffer[0] != ':') buffer++;
+    buffer++;
+    char *file_path = malloc(file_path_size + 1);
+    memset(file_path, 0, file_path_size + 1);
+    strncpy(file_path, buffer, file_path_size);
+    char *ret = wtf_server_get_file_contents(file_path);
+    printf("\tSending back {%s} to the client\n", ret);
+    write(connection->socket, ret, strlen(ret));
+    free(file_path);
+    free(ret);
   }
 
   //Close socket and cleanup
@@ -295,6 +308,57 @@ void *wtf_process(void *pointer) {
   len = 0;
   printf("\tFinished\n");
   pthread_exit(0);
+}
+
+/**
+ * wtf_server_get_file_contents
+ * 
+ * sends back the file contents of a specified file path
+ * 
+ * Returns:
+ *  "1:<data>" = Success
+ *  "5" = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
+ *  "11" = E_FILE_DOESNT_EXIST
+ */
+char *wtf_server_get_file_contents(char *file_path) {
+  char *buffer = malloc(1000);
+  char *ret_buffer = malloc(500000);
+  char *file_buffer = malloc(450000);
+  memset(buffer, 0, 1000);
+  memset(ret_buffer, 0, 500000);
+  memset(file_buffer, 0, 450000);
+  sprintf(buffer, "./Projects/%s", file_path);
+
+  //Check if the file exists
+  if (access(buffer, F_OK) == -1) {
+    free(buffer);
+    sprintf(ret_buffer, "%d", E_FILE_DOESNT_EXIST);
+    return ret_buffer;
+  }
+
+  //Open the file
+  int fd = open(buffer, O_RDONLY);
+  if (fd == -1) {
+    free(buffer);
+    sprintf(ret_buffer, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
+    return ret_buffer;
+  }
+
+  memset(buffer, 0, 1000);
+  free(buffer);
+  buffer = NULL;
+  buffer = malloc(2);  //only need buffer to be 2 bytes long since we are going to do lots of memsets
+  memset(buffer, 0, 2);
+  int n = read(fd, buffer, 1);
+  while (n != 0) {
+    sprintf(file_buffer, "%s%c", file_buffer, buffer[0]);
+    n = read(fd, buffer, 1);
+  }
+
+  //file is fully read, build buffer
+  sprintf(ret_buffer, "1:%s", file_buffer);
+  printf("\tSuccessfully read %d bytes from %s\n", strlen(file_buffer), file_path);
+  return ret_buffer;
 }
 
 /**

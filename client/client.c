@@ -290,6 +290,27 @@ int main(int argc, char **argv) {
     //All ready, create a connection handler and call server
     int result = wtf_update(project_name);
 
+  } else if (strcmp(command, "upgrade") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_UPGRADE_PARAMS, FATAL_ERROR);
+    }
+    char *project_name = argv[2];
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_UPDATE_PROJECT_NAME, FATAL_ERROR);
+    }
+
+    //All ready, create a connection handler and call server
+    int result = wtf_upgrade(project_name);
+
   } else {
     wtf_perror(E_NO_COMMAND_PROVIDED, FATAL_ERROR);
   }
@@ -308,6 +329,111 @@ static void wtf_exit_handler(void) {
     free(CONFIGURATION);
   }
   printf("Successfully handled exit.\n");
+}
+
+/**
+ * Upgrade command
+ * 
+ * Apply all of the operations listed in .Update
+ * 
+ * Returns
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_upgrade(char *project_name) {
+  wtf_connection *connection = wtf_connect();
+
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
+
+  //Check if there is no .Conflict on client
+  sprintf(buffer, "./%s/.Conflict", project_name);
+  if (access(buffer, F_OK) == 0) {
+    free(buffer);
+    wtf_perror(E_CANNOT_UPGRADE_CONFLICT_EXISTS, FATAL_ERROR);
+  }
+
+  //Check that there is a .Update file on client
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "./%s/.Update", project_name);
+  if (access(buffer, F_OK) != 0) {
+    free(buffer);
+    wtf_perror(E_CANNOT_UPGRADE_NO_UPDATE, FATAL_ERROR);
+  }
+
+  //Load .Update file into string
+  char *update_raw = malloc(100000);
+  memset(update_raw, 0, 100000);
+  int fd = open(buffer, O_RDONLY);
+  if (fd == -1) {
+    free(update_raw);
+    free(buffer);
+    wtf_perror(E_CANNOT_READ_UPDATE_FILE, FATAL_ERROR);
+  }
+  read(fd, update_raw, 100000);
+  if (strlen(update_raw) == 0) {
+    printf("Client is up to date.\n");
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "rm ./%s/.Update", project_name);
+    system(buffer);
+    close(fd);
+    free(buffer);
+    free(update_raw);
+  }
+
+  //Load update_raw into custom UpdateOperation array
+  int i = 0;
+  int j = 0;
+  char opcode;
+  int upgrade_op_count = 0;
+  int non_delete_upgrade_op_count = 0;
+  char *update_copy = malloc(strlen(update_raw) + 1);
+  memset(update_copy, 0, strlen(update_raw) + 1);
+  strncpy(update_copy, update_raw, strlen(update_raw));
+  UpgradeOperation **upgrade_ops = malloc(sizeof(UpgradeOperation *) * 1000);
+
+  while (update_copy[0] != 0) {
+    if (update_copy[0] == OPCODE_ADD || update_copy[0] == OPCODE_DELETE || update_copy[0] == OPCODE_MODIFY) {
+      opcode = update_copy[0];
+      if (opcode == OPCODE_ADD || opcode == OPCODE_MODIFY) non_delete_upgrade_op_count++;
+      if (update_copy[1] == ' ') {
+        //entry starts here
+        update_copy += 2;
+        upgrade_ops[upgrade_op_count] = malloc(sizeof(UpgradeOperation));
+        upgrade_ops[upgrade_op_count]->op_code = opcode;
+        memset(buffer, 0, 1000);
+        while (update_copy[0] != ' ') {
+          sprintf(buffer, "%s%c", buffer, update_copy[0]);
+          update_copy++;
+        }
+        upgrade_ops[upgrade_op_count]->file_path = malloc(strlen(buffer) + 1);
+        memset(upgrade_ops[upgrade_op_count]->file_path, 0, strlen(buffer) + 1);
+        strcpy(upgrade_ops[upgrade_op_count]->file_path, buffer);
+
+        //we have to fetch this from the server later
+        upgrade_ops[upgrade_op_count]->contents = NULL;
+
+        upgrade_op_count++;
+      }
+    }
+    update_copy++;
+  }
+
+  printf("upgrade_ops finished. total of %d\n", upgrade_op_count);
+  //go over all upgrade ops and fetch from the server the contents of the file if the OPCODE is M or A
+  for (i = 0; i < upgrade_op_count; i++) {
+    printf("%c %s\n", upgrade_ops[i]->op_code, upgrade_ops[i]->file_path);
+
+    if (upgrade_ops[i]->op_code == OPCODE_ADD || upgrade_ops[i]->op_code == OPCODE_MODIFY) {
+      //fetch file contents from server
+      memset(buffer, 0, 1000);
+      sprintf("%d:%s:%d:%s", strlen(COMMAND_GET_FILE_CONTENTS), COMMAND_GET_FILE_CONTENTS, strlen(upgrade_ops[i]->file_path), upgrade_ops[i]->file_path);
+      int msg_size = strlen(buffer) + 1;
+      printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+      write(connection->socket, &msg_size, sizeof(int));
+      write(connection->socket, buffer, strlen(buffer) + 1);
+    }
+  }
 }
 
 /**

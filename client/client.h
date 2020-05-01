@@ -25,6 +25,7 @@ const char *COMMAND_CREATE_PUSH = "create_push";
 const char *COMMAND_GET_HISTORY = "get_history";
 const char *COMMAND_DESTORY_PROJECT = "destroy_project";
 const char *COMMAND_ROLLBACK_PROJECT = "rollback_project";
+const char *COMMAND_GET_FILE_CONTENTS = "get_file_contents";
 
 //Possible Error Codes for the Client
 enum _error_codes {
@@ -81,7 +82,10 @@ enum _error_codes {
   E_IMPROPER_UPDATE_PARAMS = 51,
   E_IMPROPER_UPDATE_PROJECT_NAME = 52,
   E_CANNOT_UPDATE_CONFLICT_EXISTS = 53,
-  E_CANNOT_WRITE_UPDATE = 54
+  E_CANNOT_WRITE_UPDATE = 54,
+  E_IMPROPER_UPGRADE_PARAMS = 55,
+  E_CANNOT_UPGRADE_CONFLICT_EXISTS = 56,
+  E_CANNOT_UPGRADE_NO_UPDATE = 57
 };
 
 typedef enum _error_codes wtf_error;
@@ -144,7 +148,10 @@ struct _error_desc {
     {E_IMPROPER_UPDATE_PARAMS, "Improper params for update command. Please follow the format of ./WTF update <project-name>"},
     {E_IMPROPER_UPDATE_PROJECT_NAME, "Improper project name provided for update. Project names cannot contain ':'"},
     {E_CANNOT_UPDATE_CONFLICT_EXISTS, "Cannot update because conflicts exist that must be resolved first."},
-    {E_CANNOT_WRITE_UPDATE, "Improper permissions to write to .Update"}
+    {E_CANNOT_WRITE_UPDATE, "Improper permissions to write to .Update"},
+    {E_IMPROPER_UPGRADE_PARAMS, "Improper params for upgrade command. Please follow the format of ./WTF upgrade <project-name>"},
+    {E_CANNOT_UPGRADE_CONFLICT_EXISTS, "Cannot upgrade because .Conflict exists that must be resolved first."},
+    {E_CANNOT_UPGRADE_NO_UPDATE, "Cannot upgrade because there is no .Update file. Please run ./WTF update first"}
 
 };
 
@@ -174,6 +181,13 @@ typedef struct _manifest {
   int file_count;
   ManifestFileEntry **files;
 } Manifest;
+
+//Struct for handling complicated upgrade operations
+typedef struct _upgrade_op {
+  char op_code;
+  char *file_path;
+  char *contents;
+} UpgradeOperation;
 
 //Struct for .configuration
 typedef struct _configuration {
