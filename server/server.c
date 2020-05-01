@@ -356,7 +356,7 @@ char *wtf_server_get_file_contents(char *file_path) {
   }
 
   //file is fully read, build buffer
-  sprintf(ret_buffer, "1:%s", file_buffer);
+  sprintf(ret_buffer, "1:%d:%s", strlen(file_buffer), file_buffer);
   printf("\tSuccessfully read %d bytes from %s\n", strlen(file_buffer), file_path);
   return ret_buffer;
 }

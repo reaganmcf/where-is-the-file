@@ -381,6 +381,8 @@ int wtf_upgrade(char *project_name) {
     free(update_raw);
   }
 
+  close(fd);
+
   //Load update_raw into custom UpdateOperation array
   int i = 0;
   int j = 0;
@@ -421,19 +423,123 @@ int wtf_upgrade(char *project_name) {
 
   printf("upgrade_ops finished. total of %d\n", upgrade_op_count);
   //go over all upgrade ops and fetch from the server the contents of the file if the OPCODE is M or A
-  for (i = 0; i < upgrade_op_count; i++) {
-    printf("%c %s\n", upgrade_ops[i]->op_code, upgrade_ops[i]->file_path);
 
+  char *mid_buffer = malloc(20);
+  for (i = 0; i < upgrade_op_count; i++) {
+    memset(mid_buffer, 0, 20);
+    memset(buffer, 0, 1000);
     if (upgrade_ops[i]->op_code == OPCODE_ADD || upgrade_ops[i]->op_code == OPCODE_MODIFY) {
       //fetch file contents from server
-      memset(buffer, 0, 1000);
-      sprintf("%d:%s:%d:%s", strlen(COMMAND_GET_FILE_CONTENTS), COMMAND_GET_FILE_CONTENTS, strlen(upgrade_ops[i]->file_path), upgrade_ops[i]->file_path);
+      sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_GET_FILE_CONTENTS), COMMAND_GET_FILE_CONTENTS, strlen(upgrade_ops[i]->file_path), upgrade_ops[i]->file_path);
       int msg_size = strlen(buffer) + 1;
       printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
       write(connection->socket, &msg_size, sizeof(int));
       write(connection->socket, buffer, strlen(buffer) + 1);
+      memset(buffer, 0, 1000);
+      read(connection->socket, buffer, 1);
+      if (buffer[0] == '1') {
+        //all good, read more
+        read(connection->socket, buffer, 1);  //read past :
+        memset(buffer, 0, 1);
+        while (buffer[0] != ':') {
+          sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
+          read(connection->socket, buffer, 1);
+        }
+        int file_size = atoi(mid_buffer);
+        upgrade_ops[i]->contents = malloc(file_size + 1);
+        memset(upgrade_ops[i]->contents, 0, file_size + 1);
+        read(connection->socket, upgrade_ops[i]->contents, file_size);
+        printf("Retrieved file contents for %s\n", upgrade_ops[i]->file_path);
+      } else {
+        //error happened when grabbing file from server
+        for (j = 0; j < 1000; j++) {
+          free(upgrade_ops[j]->contents);
+          free(upgrade_ops[j]->file_path);
+          free(upgrade_ops[j]);
+        }
+        free(upgrade_ops);
+        free(buffer);
+        free(mid_buffer);
+        close(connection->socket);
+        free(connection);
+        wtf_perror(E_SERVER_CANNOT_FIND_FILE, FATAL_ERROR);
+      }
+    }
+
+    printf("%c %s %s\n", upgrade_ops[i]->op_code, upgrade_ops[i]->file_path, upgrade_ops[i]->contents);
+
+    //Apply the operation
+    if (upgrade_ops[i]->op_code == OPCODE_ADD || upgrade_ops[i]->op_code == OPCODE_MODIFY) {
+      //create the file and write to it
+      //we need to pull out the dir and tree path first
+
+      char *dir_paths = malloc(1000);
+      memset(dir_paths, 0, 1000);
+      int k = 0;
+      int slash_index = 0;
+      while (upgrade_ops[i]->file_path[k] != 0) {
+        if (upgrade_ops[i]->file_path[k] == '/')
+          slash_index = k;
+        k++;
+      }
+      strncpy(dir_paths, upgrade_ops[i]->file_path, slash_index + 1);
+      printf("\tdir subtree is %s\n", dir_paths);
+
+      memset(buffer, 0, 1000);
+      sprintf(buffer, "./Projects/%s", dir_paths);
+      DIR *dir = opendir(buffer);
+      if (dir) {
+        closedir(dir);
+      } else {
+        memset(buffer, 0, 1000);
+        sprintf(buffer, "mkdir -p %s &> /dev/null", dir_paths);
+        system(buffer);
+      }
+
+      fd = open(upgrade_ops[i]->file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+      if (fd == -1) {
+        printf("couldn't open %s\n", upgrade_ops[i]->file_path);
+        for (j = 0; j < 1000; j++) {
+          free(upgrade_ops[j]->contents);
+          free(upgrade_ops[j]->file_path);
+          free(upgrade_ops[j]);
+        }
+        free(upgrade_ops);
+        free(buffer);
+        free(mid_buffer);
+        close(connection->socket);
+        free(connection);
+        wtf_perror(E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE, FATAL_ERROR);
+      }
+
+      write(fd, upgrade_ops[i]->contents, strlen(upgrade_ops[i]->contents));
+      close(fd);
+    } else {
+      //Delete operation
+      memset(buffer, 0, 1000);
+      sprintf(buffer, "rm %s", upgrade_ops[i]->file_path);
+      system(buffer);
     }
   }
+
+  //Delete .Update
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "rm ./%s/.Update &> /dev/null", project_name);
+  system(buffer);
+
+  printf("Successfully performed operations listed in .Update\n");
+
+  // for (j = 0; j < 1000; j++) {
+  //   free(upgrade_ops[j]->contents);
+  //   free(upgrade_ops[j]->file_path);
+  //   free(upgrade_ops[j]);
+  // }
+  free(upgrade_ops);
+  free(buffer);
+  free(mid_buffer);
+  close(connection->socket);
+  free(connection);
+  return 1;
 }
 
 /**

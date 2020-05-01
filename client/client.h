@@ -85,7 +85,9 @@ enum _error_codes {
   E_CANNOT_WRITE_UPDATE = 54,
   E_IMPROPER_UPGRADE_PARAMS = 55,
   E_CANNOT_UPGRADE_CONFLICT_EXISTS = 56,
-  E_CANNOT_UPGRADE_NO_UPDATE = 57
+  E_CANNOT_UPGRADE_NO_UPDATE = 57,
+  E_SERVER_CANNOT_FIND_FILE = 58,
+  E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE = 59
 };
 
 typedef enum _error_codes wtf_error;
@@ -151,7 +153,9 @@ struct _error_desc {
     {E_CANNOT_WRITE_UPDATE, "Improper permissions to write to .Update"},
     {E_IMPROPER_UPGRADE_PARAMS, "Improper params for upgrade command. Please follow the format of ./WTF upgrade <project-name>"},
     {E_CANNOT_UPGRADE_CONFLICT_EXISTS, "Cannot upgrade because .Conflict exists that must be resolved first."},
-    {E_CANNOT_UPGRADE_NO_UPDATE, "Cannot upgrade because there is no .Update file. Please run ./WTF update first"}
+    {E_CANNOT_UPGRADE_NO_UPDATE, "Cannot upgrade because there is no .Update file. Please run ./WTF update first"},
+    {E_SERVER_CANNOT_FIND_FILE, "Cannot upgrade because server couldn't find the file(s) listed in .Update"},
+    {E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE, "Cannot upgrade because was unable to open or create the file(s) listed in .Update"}
 
 };
 
