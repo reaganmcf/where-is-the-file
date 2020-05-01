@@ -10,6 +10,7 @@
 #define OPCODE_ADD 'A'
 #define OPCODE_DELETE 'D'
 #define OPCODE_MODIFY 'M'
+#define OPCODE_CONFLICT 'C'
 #define OPCODE_NONE 'N'
 #define CLIENT 0
 #define SERVER 1

@@ -324,8 +324,141 @@ int wtf_update(char *project_name) {
   Manifest *client_manifest = fetch_client_manifest(project_name);
   //If we get here then project exists on client and server, and also means we can establish a connection
 
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
+
   //Full Success Case
   //server and client .Manifests are the same version
+  if (server_manifest->version_number == client_manifest->version_number) {
+    printf("Up To Date\n");
+    //We need to write a blank .Update
+    sprintf(buffer, "./%s/.Update", project_name);
+    if (access(buffer, F_OK) != -1) {
+      memset(buffer, 0, 1000);
+      sprintf(buffer, "rm ./%s/.Update", project_name);
+      system(buffer);
+    }
+    sprintf(buffer, "touch ./%s/.Update", project_name);
+    system(buffer);
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "./%s/.Conflict", project_name);
+    if (access(buffer, F_OK) != -1) {
+      memset(buffer, 0, 1000);
+      sprintf(buffer, "rm ./%s/.Conflict", project_name);
+      system(buffer);
+    }
+    free(buffer);
+    free_manifest(client_manifest);
+    free_manifest(server_manifest);
+    return 1;
+  }
+
+  //calculate live hash for all of the client's files
+
+  int i;
+  int j;
+  char *hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+  memset(hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+  for (i = 0; i < client_manifest->file_count; i++) {
+    hash = hash_file(client_manifest->files[i]->file_path);
+    client_manifest->files[i]->new_hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+    memset(client_manifest->files[i]->new_hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+    strncpy(client_manifest->files[i]->new_hash, hash, strlen(hash));
+  }
+
+  char *conflict_buffer = malloc(500000);
+  memset(conflict_buffer, 0, 500000);
+  int total_writes = 0;
+
+  //Failure Case: server and client are different version, and client has a livehash that doesn't exist on either the server or client
+  for (i = 0; i < client_manifest->file_count; i++) {
+    for (j = 0; j < server_manifest->file_count; j++) {
+      if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+        //Same file, now check if live hash is different then stored hash on client
+        if (strcmp(client_manifest->files[i]->new_hash, client_manifest->files[i]->hash) != 0) {
+          //Modified on client, now check if it's different then the server hash
+          if (strcmp(client_manifest->files[i]->new_hash, server_manifest->files[i]->hash) != 0) {
+            //Modified on both client and server, this is a conflict
+            if (total_writes != 0) {
+              sprintf(conflict_buffer, "%s\n");
+            }
+            total_writes++;
+            sprintf(conflict_buffer, "%s%c %s %s", conflict_buffer, OPCODE_CONFLICT, client_manifest->files[i]->file_path, client_manifest->files[i]->new_hash);
+            printf("%c %s\n", OPCODE_CONFLICT, client_manifest->files[i]->file_path);
+          }
+        }
+      }
+    }
+  }
+
+  //Add Code Partial Success
+  char *update_buffer = malloc(500000);
+  memset(update_buffer, 0, 500000);
+  total_writes = 0;
+
+  //Modify Code case: Server has modifications for the client
+  //  client manifest has files whose version and hash are different then the server
+  //  and the live hash of those files MATCH the hash in the client's .Manifest
+
+  for (i = 0; i < client_manifest->file_count; i++) {
+    for (j = 0; j < server_manifest->file_count; j++) {
+      if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+        //Same file, now lets check if hashes are different on client side
+        if (strcmp(client_manifest->files[i]->new_hash, server_manifest->files[j]->hash) != 0) {
+          //Client has different file, now make sure that the client hash == server hash
+          if (strcmp(client_manifest->files[i]->new_hash, server_manifest->files[j]->hash) == 0) {
+            //This is a match. We need to append a MODIFY opcode to .Update
+            if (total_writes != 0) {
+              sprintf(update_buffer, "%s\n", update_buffer);
+            }
+            total_writes++;
+            printf("%c %s\n", OPCODE_MODIFY, client_manifest->files[i]->file_path);
+            sprintf(update_buffer, "%s%c %s %s", update_buffer, OPCODE_MODIFY, client_manifest->files[i]->file_path, server_manifest->files[j]->hash);
+          }
+        }
+      }
+    }
+  }
+
+  // //Add Code case: server doesn't have the file but client does
+  // int server_has_file;
+  // for (i = 0; i < client_manifest->file_count; i++) {
+  //   server_has_file = 0;
+  //   for (j = 0; j < server_manifest->file_count; j++) {
+  //     if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+  //       server_has_file = 1;
+  //     }
+  //   }
+  //   if (server_has_file == 0) {
+  //     printf("%c %s\n", OPCODE_ADD, client_manifest->files[i]->file_path);
+  //     if (total_writes != 0) {
+  //       sprintf(commit_buffer, "%s\n", commit_buffer);
+  //     }
+  //     total_writes++;
+  //     sprintf(commit_buffer, "%s%c %s %s", commit_buffer, OPCODE_ADD, client_manifest->files[i]->file_path, client_manifest->files[i]->new_hash);
+  //   }
+  // }
+
+  // //Delete Code case: server has the file but client doesn't
+  // int client_has_file;
+  // for (i = 0; i < server_manifest->file_count; i++) {
+  //   client_has_file = 0;
+  //   for (j = 0; j < client_manifest->file_count; j++) {
+  //     if (strcmp(server_manifest->files[i]->file_path, client_manifest->files[j]->file_path) == 0) {
+  //       client_has_file = 1;
+  //     }
+  //   }
+  //   if (client_has_file == 0) {
+  //     printf("%c %s\n", OPCODE_DELETE, server_manifest->files[i]->file_path);
+  //     if (total_writes != 0) {
+  //       sprintf(commit_buffer, "%s\n", commit_buffer);
+  //     }
+  //     total_writes++;
+  //     sprintf(commit_buffer, "%s%c %s %s", commit_buffer, OPCODE_DELETE, server_manifest->files[i]->file_path, server_manifest->files[i]->hash);
+  //   }
+  // }
+
+  return 1;
 }
 
 /**
@@ -543,7 +676,7 @@ int wtf_push(char *project_name) {
   close(commit_fd);
   printf("commit buffer loaded %s\n", commit_buffer);
 
-  //Go over all of the files that were A opcode's and add them to the file_buffer which we will compress later
+  //Go over all of the files that were A and M opcode's and add them to the file_buffer which we will compress later
   int i;
   int fd = 0;
   char *file_buffer = malloc(1000000);
@@ -556,7 +689,7 @@ int wtf_push(char *project_name) {
     t_size = 0;
     memset(mid_buffer, 0, 10000);
     memset(buffer, 0, 1000);
-    if (commit_buffer[i] == 'A' && commit_buffer[i + 1] == ' ') {
+    if ((commit_buffer[i] == OPCODE_ADD || commit_buffer[i] == OPCODE_MODIFY) && commit_buffer[i + 1] == ' ') {
       total_files_to_send++;
       i += 2;
       while (commit_buffer[i] != ' ') {
@@ -631,7 +764,9 @@ int wtf_push(char *project_name) {
       client_manifest->files[i]->seen_by_server = 1;
       client_manifest->files[i]->op_code = OPCODE_NONE;
     }
-    write_manifest(client_manifest);
+    free_manifest(server_manifest);
+    server_manifest = fetch_server_manifest(project_name);
+    write_manifest(server_manifest);
     memset(buffer, 0, 1000);
     sprintf(buffer, "./%s/.Commit", project_name);
     remove(buffer);
@@ -1098,6 +1233,8 @@ Manifest *fetch_server_manifest(char *project_name) {
       strcpy(server_manifest->files[j]->hash, buffer);
 
       server_manifest->files[j]->new_hash = NULL;
+      server_manifest->files[j]->seen_by_server = 1;
+      server_manifest->files[j]->op_code = OPCODE_NONE;
     }
 
     //Move pointer back so we can free the block correctly
@@ -1366,7 +1503,7 @@ int wtf_add(char *project_name, char *file_name) {
   memset(buffer, 0, 150);
   char *hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
   memset(hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
-  hash = hash_file(file);
+  sprintf(hash, "%s", hash_file(file));
   sprintf(buffer, "\n~ A:%s:%d:%s:%s", file, 1, hash, "!");
   n = write(manifest_fd, buffer, strlen(buffer));
   if (n == 0) wtf_perror(E_CANNOT_WRITE_TO_MANIFEST, FATAL_ERROR);
@@ -1394,31 +1531,18 @@ char *hash_file(char *path) {
   char *char_buffer = malloc(1);
   int file_fd = open(path, O_RDONLY);
   if (file_fd < 0) wtf_perror(E_CANNOT_READ_FILE, FATAL_ERROR);
-  int n = 1;
-  int cap = 100000;
-  while (n != 0 && cap != 0) {
-    n = read(file_fd, char_buffer, 1);
-    if (strlen(char_buffer) == 0) {
-      n == 0;
-      char_buffer[0] = '\0';
-    }
-    sprintf(file_contents_buffer, "%s%c", file_contents_buffer, char_buffer[0]);
-    cap--;
-  }
+  read(file_fd, file_contents_buffer, 100000);
 
-  if (cap == 0 && n != 0) wtf_perror(E_FILE_MAX_LENGTH, NON_FATAL_ERROR);
+  printf("file contents buffer is %s, strlen is %d\n", file_contents_buffer, strlen(file_contents_buffer));
+  file_contents_buffer[strlen(file_contents_buffer)] = '\0';
 
-  printf("file contents buffer is %s\n", file_contents_buffer);
-
-  SHA_CTX ctx;
-  SHA1_Init(&ctx);
-  SHA1_Update(&ctx, file_contents_buffer, strlen(file_contents_buffer));
   unsigned char tmphash[SHA_DIGEST_LENGTH];
   memset(tmphash, 0, SHA_DIGEST_LENGTH);
-  SHA1_Final(tmphash, &ctx);
-  int i = 0;
+  SHA1(file_contents_buffer, strlen(file_contents_buffer), tmphash);
+
   unsigned char *hash = malloc((SHA_DIGEST_LENGTH * 2) + 1);
   memset(hash, 0, SHA_DIGEST_LENGTH * 2);
+  int i = 0;
   for (i = 0; i < SHA_DIGEST_LENGTH; i++)
     sprintf((char *)&(hash[i * 2]), "%02x", tmphash[i]);
 

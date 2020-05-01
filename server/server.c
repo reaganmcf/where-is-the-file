@@ -695,7 +695,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
         }
         int file_contents_length = atoi(buffer);
         commit_ops[commit_op_count]->contents = malloc(file_contents_length + 1);
-        memset(commit_ops[commit_op_count]->contents, 0, file_contents_length);
+        memset(commit_ops[commit_op_count]->contents, 0, file_contents_length + 1);
         for (i = 0; i < file_contents_length; i++) {
           sprintf(commit_ops[commit_op_count]->contents, "%s%c", commit_ops[commit_op_count]->contents, files_copy[0]);
           files_copy++;
@@ -740,6 +740,8 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
       new_manifest->files[i]->file_path = malloc(strlen(commit_ops[i]->file_path) + 1);
       strcpy(new_manifest->files[i]->file_path, commit_ops[i]->file_path);
       new_manifest->files[i]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+      memset(new_manifest->files[i]->hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+      printf("going to be hasing %s\n", commit_ops[i]->contents);
       new_manifest->files[i]->hash = hash_string(commit_ops[i]->contents);
       new_manifest->files[i]->op_code = OPCODE_NONE;
       new_manifest->files[i]->seen_by_server = 1;
@@ -1067,19 +1069,18 @@ void wtf_perror(wtf_error e, int should_exit) {
  * 
  */
 char *hash_string(char *string) {
-  printf("\thashing %s\n", string);
-  SHA_CTX ctx;
-  SHA1_Init(&ctx);
-  SHA1_Update(&ctx, string, strlen(string));
+  printf("\thashing %s strlen is %d\n", string, strlen(string));
   unsigned char tmphash[SHA_DIGEST_LENGTH];
   memset(tmphash, 0, SHA_DIGEST_LENGTH);
-  SHA1_Final(tmphash, &ctx);
+  SHA1(string, strlen(string), tmphash);
   int i = 0;
   unsigned char *hash = malloc((SHA_DIGEST_LENGTH * 2) + 1);
   memset(hash, 0, SHA_DIGEST_LENGTH * 2);
   for (i = 0; i < SHA_DIGEST_LENGTH; i++) {
     sprintf((char *)&(hash[i * 2]), "%02x", tmphash[i]);
   }
+
+  printf("final hash is %s\n", hash);
 
   return hash;
 }
