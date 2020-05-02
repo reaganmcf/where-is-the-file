@@ -29,6 +29,35 @@ int main(int argc, char **argv) {
 
   char *command = argv[1];
 
+  //Error check params
+  int i;
+  int params_are_safe = 1;
+  for (i = 1; i < argc; i++) {
+    //check if the first or last char is a / ./
+    char substr[100];
+    memset(substr, 0, 100);
+    strncpy(substr, argv[i], 2);
+    if (strlen(substr) >= 2) {
+      if (substr[0] == '.' && substr[1] == '/') {
+        params_are_safe = 0;
+      } else if (substr[0] == '/') {
+        params_are_safe = 0;
+      } else if (substr[strlen(substr) - 1] == '/') {
+        params_are_safe = 0;
+      } else if (substr[strlen(substr) - 1] == '.' && substr[strlen(substr) - 2] == '/') {
+        params_are_safe = 0;
+      }
+    } else if (strlen(substr) == 1) {
+      if (substr[0] == '/') {
+        params_are_safe = 0;
+      }
+    }
+  }
+
+  if (params_are_safe == 0) {
+    wtf_perror(E_IMPROPER_PATH_INPUT_PARAMS, FATAL_ERROR);
+  }
+
   //Now, lets check send the command to the proper function
   if (strcmp(command, "configure") == 0) {
     //Check for params
@@ -650,6 +679,7 @@ int wtf_upgrade(char *project_name) {
         sprintf(buffer, "mkdir -p %s &> /dev/null", dir_paths);
         system(buffer);
       }
+      closedir(dir);
       free(dir_paths);
 
       fd = open(upgrade_ops[i]->file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
@@ -675,8 +705,11 @@ int wtf_upgrade(char *project_name) {
     } else {
       //Delete operation
       memset(buffer, 0, 1000);
-      sprintf(buffer, "rm %s", upgrade_ops[i]->file_path);
+      sprintf(buffer, "rm %s &> /dev/null", upgrade_ops[i]->file_path);
       system(buffer);
+
+      //sanitize project
+      sanitize_project(project_name);
     }
   }
 
@@ -694,12 +727,13 @@ int wtf_upgrade(char *project_name) {
     if (upgrade_ops[j] != NULL) {
       free(upgrade_ops[j]->contents);
       free(upgrade_ops[j]->file_path);
-      free(upgrade_ops[j]);
     }
+    free(upgrade_ops[j]);
   }
   free(upgrade_ops);
   free(buffer);
   free(mid_buffer);
+  free_manifest(server_manifest);
   close(connection->socket);
   free(connection);
   return 1;
@@ -815,7 +849,7 @@ int wtf_update(char *project_name) {
     }
   }
 
-  //Add Code case: server has the file but server doesn't
+  //Add Code case: server has the file but client doesn't
   int client_has_file;
   for (i = 0; i < server_manifest->file_count; i++) {
     client_has_file = 0;
@@ -834,33 +868,23 @@ int wtf_update(char *project_name) {
     }
   }
 
-  //Add Code case: server DOES NOT have the file but client does
-  for (i = 0; i < server_manifest->file_count; i++) {
-    client_has_file = 0;
-    for (j = 0; j < client_manifest->file_count; j++) {
-      if (strcmp(server_manifest->files[i]->file_path, client_manifest->files[j]->file_path) == 0) {
-        client_has_file = 1;
+  //Delete Code case: client has the file but server doesn't
+  int server_has_file;
+  for (i = 0; i < client_manifest->file_count; i++) {
+    server_has_file = 0;
+    for (j = 0; j < server_manifest->file_count; j++) {
+      if (strcmp(client_manifest->files[i]->file_path, server_manifest->files[j]->file_path) == 0) {
+        server_has_file = 1;
       }
     }
-    if (client_has_file == 1) {
-      printf("%c %s\n", OPCODE_DELETE, server_manifest->files[i]->file_path);
+    if (server_has_file == 0) {
+      printf("%c %s\n", OPCODE_DELETE, client_manifest->files[i]->file_path);
       if (total_writes != 0) {
         sprintf(update_buffer, "%s\n", update_buffer);
       }
       total_writes++;
-      sprintf(update_buffer, "%s%c %s %s", update_buffer, OPCODE_DELETE, server_manifest->files[i]->file_path, server_manifest->files[i]->hash);
+      sprintf(update_buffer, "%s%c %s %s", update_buffer, OPCODE_DELETE, client_manifest->files[i]->file_path, client_manifest->files[i]->hash);
     }
-  }
-
-  //Nothing to update
-  if (strlen(update_buffer) == 0) {
-    printf("Nothing to update\n");
-    free(update_buffer);
-    free(conflict_buffer);
-    free(buffer);
-    free_manifest(server_manifest);
-    free_manifest(client_manifest);
-    return 1;
   }
 
   //Conflict exists
@@ -895,6 +919,17 @@ int wtf_update(char *project_name) {
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     wtf_perror(E_CANNOT_UPDATE_CONFLICT_EXISTS, FATAL_ERROR);
+  }
+
+  //Nothing to update
+  if (strlen(update_buffer) == 0) {
+    printf("Nothing to update\n");
+    free(update_buffer);
+    free(conflict_buffer);
+    free(buffer);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    return 1;
   }
 
   //Write .Update
@@ -1502,7 +1537,6 @@ int wtf_commit(char *project_name) {
     free_manifest(server_manifest);
     free_manifest(client_manifest);
     close(fd);
-    free(hash);
     close(connection->socket);
     free(connection);
     free(server_buffer);
@@ -1515,7 +1549,6 @@ int wtf_commit(char *project_name) {
   free_manifest(server_manifest);
   free_manifest(client_manifest);
   close(fd);
-  free(hash);
   close(connection->socket);
   free(connection);
   free(server_buffer);
@@ -2267,6 +2300,20 @@ void print_manifest(Manifest *m, int client_or_server, int verbose) {
       printf("\t%s Version: %d; OPCode: %c; Hash: %s; Seen by server: %d\n", m->files[i]->file_path, m->files[i]->version_number, m->files[i]->op_code, m->files[i]->hash, m->files[i]->seen_by_server);
     }
   }
+}
+
+/**
+ * sanitize_project
+ * 
+ * Go through all directories and delete them if they don't contain any files
+ */
+void sanitize_project(char *project) {
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "cd ./%s/ && find . -type d -empty -delete", project);
+  // system(buffer);
+  printf("Sanitized project\n");
+  free(buffer);
 }
 
 /**

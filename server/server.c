@@ -20,7 +20,7 @@
  */
 
 int SOCKET_FD;
-pthread_mutex_t lock;
+RepositoryLock *HEAD_REPOSITORY_LOCK;
 
 int main(int argc, char **argv) {
   //Check if only a port is passed in as a param as it should
@@ -55,14 +55,37 @@ int main(int argc, char **argv) {
     wtf_perror(E_CANNOT_LISTEN_TO_PORT, FATAL_ERROR);
   }
 
-  //setup mutex
-  if (pthread_mutex_init(&lock, NULL) != 0) {
-    wtf_perror(E_CANNOT_INIT_MUTEX, FATAL_ERROR);
+  //exit handler
+  atexit(wtf_server_exit_handler);
+
+  //Initialize repo locks
+  DIR *d;
+  struct dirent *dir;
+  d = opendir("./Projects/");
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      if (!isRegFile(dir->d_name)) {
+        RepositoryLock *new_lock = malloc(sizeof(RepositoryLock));
+        memset(new_lock, 0, sizeof(new_lock));
+        new_lock->next = NULL;
+        new_lock->project_name = malloc(strlen(dir->d_name) + 1);
+        memset(new_lock->project_name, 0, strlen(dir->d_name) + 1);
+        strcpy(new_lock->project_name, dir->d_name);
+        pthread_mutex_init(&(new_lock->lock), NULL);
+        RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
+        while (curr->next != NULL) {
+          curr = curr->next;
+        }
+        curr->next = new_lock;
+      }
+    }
+    closedir(d);
+  } else {
+    wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
+    return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   printf("Server has started up Successfully. Listening for Connections...\n");
-
-  atexit(wtf_server_exit_handler);
 
   while (1) {
     //Listen for incoming connections
@@ -89,7 +112,6 @@ int main(int argc, char **argv) {
 static void wtf_server_exit_handler(void) {
   printf("Handling exit safely. Freeing alloc'd memory...\n");
   close(SOCKET_FD);
-  pthread_mutex_destroy(&lock);
   printf("Successfully handled exit.\n");
 }
 
@@ -379,8 +401,6 @@ char *wtf_server_get_file_contents(char *file_path) {
  *  10 = E_PROJECT_VERSION_DOESNT_EXIST
  */
 int wtf_server_rollback_project(char *project_name, int version_number) {
-  pthread_mutex_lock(&lock);
-
   //First loop over directory and check if the project actually exists
   DIR *d;
   struct dirent *dir;
@@ -397,13 +417,13 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
     closedir(d);
   } else {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   if (name_exists == 0) {
     wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_PROJECT_DOESNT_EXIST;
   }
 
@@ -411,7 +431,7 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
   Manifest *manifest = fetch_manifest(project_name);
   if (manifest->version_number <= version_number) {
     wtf_perror(E_PROJECT_VERSION_DOESNT_EXIST, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     free_manifest(manifest);
     return E_PROJECT_VERSION_DOESNT_EXIST;
   }
@@ -485,7 +505,7 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
 
   printf("Successfully rolled back project\n");
   free(buffer);
-  pthread_mutex_unlock(&lock);
+  unlock_repository(project_name);
   free_manifest(manifest);
 
   return 1;
@@ -505,7 +525,7 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
  */
 int wtf_server_destroy_project(char *project_name) {
   //lock mutex
-  pthread_mutex_lock(&lock);
+  lock_repository(project_name);
 
   //First loop over directory and check if the project actually exists
   DIR *d;
@@ -523,13 +543,13 @@ int wtf_server_destroy_project(char *project_name) {
     closedir(d);
   } else {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   if (name_exists == 0) {
     wtf_perror(E_PROJECT_DOESNT_EXIST, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_PROJECT_DOESNT_EXIST;
   }
 
@@ -540,7 +560,7 @@ int wtf_server_destroy_project(char *project_name) {
   system(buffer);
 
   free(buffer);
-  pthread_mutex_unlock(&lock);
+  unlock_repository(project_name);
   return 1;
 }
 
@@ -644,13 +664,13 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   printf("\tChecking if commit doesn't exist\n");
 
   //lock repo
-  pthread_mutex_lock(&lock);
+  lock_repository(project_name);
 
   printf("\tServer should have %s\n", target_commit_file_name);
   if (access(buffer, F_OK) == -1) {
     printf("\tCommit doesn't exist, can't push\n");
     sprintf(buff, "101");
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return buff;
   }
 
@@ -679,7 +699,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   } else {
     free(mid_buffer);
     free(buffer);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
   }
@@ -846,8 +866,12 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
       close(fd);
     } else {
       //has to be delete
-      printf("\tdeleting\n");
-      remove(buffer);
+      memset(buffer, 0, 1000);
+      sprintf(buffer, "rm %s", commit_ops[i]->file_path);
+      system(buffer);
+
+      //sanitize project
+      sanitize_project(project_name);
     }
   }
 
@@ -859,7 +883,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   free_manifest(manifest);
   free(mid_buffer);
   free(buffer);
-  pthread_mutex_unlock(&lock);
+  unlock_repository(project_name);
   sprintf(buff, "101");
   return buff;
 }
@@ -925,7 +949,7 @@ char *wtf_server_write_commit(char *project_name, char *commit) {
  */
 int wtf_server_create_project(char *project_name) {
   //lock mutex
-  pthread_mutex_lock(&lock);
+  lock_repository(project_name);
 
   //First we need to loop over the directory ./Projects/ and check if any of the file names already exist
   DIR *d;
@@ -943,13 +967,13 @@ int wtf_server_create_project(char *project_name) {
     closedir(d);
   } else {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
   if (name_exists == 1) {
     wtf_perror(E_PROJECT_ALREADY_EXISTS, NON_FATAL_ERROR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
@@ -965,7 +989,7 @@ int wtf_server_create_project(char *project_name) {
     free(path);
     close(fd);
     //unlock
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
@@ -980,7 +1004,7 @@ int wtf_server_create_project(char *project_name) {
     free(path);
     close(fd);
     //unlock
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
@@ -989,7 +1013,7 @@ int wtf_server_create_project(char *project_name) {
   close(fd);
 
   //unlock
-  pthread_mutex_unlock(&lock);
+  unlock_repository(project_name);
   return 0;
 }
 
@@ -1007,14 +1031,14 @@ int wtf_server_create_project(char *project_name) {
  */
 char *wtf_server_get_current_version(char *project_name) {
   //lock
-  pthread_mutex_lock(&lock);
+  lock_repository(project_name);
 
   char *path = malloc(150);
   char *ret_string = malloc(500000);
   sprintf(path, "./Projects/%s/.Manifest", project_name);
   if (access(path, F_OK) == -1) {
     sprintf(ret_string, "%d", E_PROJECT_DOESNT_EXIST);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     free(path);
     return ret_string;
   }
@@ -1024,7 +1048,7 @@ char *wtf_server_get_current_version(char *project_name) {
     close(manifest_fd);
     free(path);
     sprintf(ret_string, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return ret_string;
   }
 
@@ -1035,7 +1059,7 @@ char *wtf_server_get_current_version(char *project_name) {
     close(manifest_fd);
     free(buffer);
     sprintf(ret_string, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
-    pthread_mutex_unlock(&lock);
+    unlock_repository(project_name);
     return ret_string;
   }
   memset(buffer, 0, 10000);
@@ -1106,7 +1130,7 @@ char *wtf_server_get_current_version(char *project_name) {
   free(path);
   close(manifest_fd);
 
-  pthread_mutex_unlock(&lock);
+  unlock_repository(project_name);
 
   return final_ret_string;
 }
@@ -1319,6 +1343,22 @@ void print_manifest(Manifest *m, int verbose) {
 }
 
 /**
+ * lock_repository
+ * 
+ * lock a specific mutex given the project name
+ */
+void lock_repository(char *project_name) {
+}
+
+/**
+ * unlock_repository
+ * 
+ * unlock a specific mutex given the project name
+ */
+void unlock_repository(char *project_name) {
+}
+
+/**
  * 
  * free_manifest
  * 
@@ -1402,6 +1442,21 @@ int write_manifest(Manifest *manifest) {
   close(fd);
   free(buffer);
   return 1;
+}
+
+/**
+ * sanitize_project
+ * 
+ * Go through all directories and delete them if they don't contain any files
+ */
+void sanitize_project(char *project) {
+  printf("\tSanitizing project\n");
+  char *buffer = malloc(1000);
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "cd ./%s/ && find . -type d -empty print");
+  system(buffer);
+  printf("Sanitized project\n");
+  free(buffer);
 }
 
 /**

@@ -92,7 +92,8 @@ enum _error_codes {
   E_IMPROPER_CHECKOUT_PARAMS = 61,
   E_CANNOT_CHECKOUT_PROJECT_ALREADY_EXISTS = 62,
   E_CANNOT_CHECKOUT_CANT_WRITE_FILE = 63,
-  E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS = 64
+  E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS = 64,
+  E_IMPROPER_PATH_INPUT_PARAMS = 65
 };
 
 typedef enum _error_codes wtf_error;
@@ -165,7 +166,8 @@ struct _error_desc {
     {E_IMPROPER_CHECKOUT_PARAMS, "Improper params for checkout command. Please follow the format of ./WTF checkout <project-name>"},
     {E_CANNOT_CHECKOUT_PROJECT_ALREADY_EXISTS, "Cannot checkout because the project already exists on the client side."},
     {E_CANNOT_CHECKOUT_CANT_WRITE_FILE, "Cannot checkout because unable to write files to the project directory."},
-    {E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS, "Cannot checkout because was unable to retrieve file contents from the server."}
+    {E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS, "Cannot checkout because was unable to retrieve file contents from the server."},
+    {E_IMPROPER_PATH_INPUT_PARAMS, "Params have improper format. Please enter paths without leading or trailing '/'"}
 
 };
 
@@ -265,6 +267,9 @@ void free_manifest(Manifest *);
 
 //Function Prototype for hashing a file helper function
 char *hash_file(char *path);
+
+//Function Prototype for sanitizing a project: removing dirs that don't have files in them
+void sanitize_project(char *);
 
 //Function Prototype for checking if a path is a normal file and not a directory
 int isRegFile(const char *);

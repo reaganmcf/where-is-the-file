@@ -87,6 +87,13 @@ typedef struct _commit_op {
   char *contents;
 } CommitOperation;
 
+//Struct for handling repository locks
+typedef struct _repository_lock {
+  pthread_mutex_t lock;
+  char *project_name;
+  struct RepositoryLock *next;
+} RepositoryLock;
+
 //connection struct
 typedef struct
 {
@@ -128,6 +135,12 @@ int wtf_server_rollback_project(char *, int);
 //Function Prototype for getting the contents of a file
 char *wtf_server_get_file_contents(char *);
 
+//Function Prototype for locking a repository
+void lock_repository(char *);
+
+//Function Prototype for unlocking a repository
+void unlock_repository(char *);
+
 //Function Prototype for fetching manifest on server side
 Manifest *fetch_manifest(char *);
 
@@ -139,6 +152,9 @@ int write_manifest(Manifest *);
 
 //Function Prototype for freeing manifest
 void free_manifest(Manifest *);
+
+//Function Prototype for sanitizing a project: removing dirs that don't have files in them
+void sanitize_project(char *);
 
 //Function Prototype for hashing string helper function
 char *hash_string(char *);
