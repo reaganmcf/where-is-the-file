@@ -91,7 +91,7 @@ typedef struct _commit_op {
 typedef struct _repository_lock {
   pthread_mutex_t lock;
   char *project_name;
-  struct RepositoryLock *next;
+  struct _repository_lock *next;
 } RepositoryLock;
 
 //connection struct
@@ -140,6 +140,9 @@ void lock_repository(char *);
 
 //Function Prototype for unlocking a repository
 void unlock_repository(char *);
+
+//Function prototype for sigint handler
+void sigintHandler(int);
 
 //Function Prototype for fetching manifest on server side
 Manifest *fetch_manifest(char *);

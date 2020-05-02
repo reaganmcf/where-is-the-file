@@ -5,6 +5,7 @@
 #include <linux/in.h>
 #include <openssl/sha.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,7 @@
  */
 
 int SOCKET_FD;
-RepositoryLock *HEAD_REPOSITORY_LOCK;
+RepositoryLock *HEAD_REPOSITORY_LOCK = NULL;
 
 int main(int argc, char **argv) {
   //Check if only a port is passed in as a param as it should
@@ -57,6 +58,7 @@ int main(int argc, char **argv) {
 
   //exit handler
   atexit(wtf_server_exit_handler);
+  signal(SIGINT, sigintHandler);
 
   //Initialize repo locks
   DIR *d;
@@ -64,7 +66,7 @@ int main(int argc, char **argv) {
   d = opendir("./Projects/");
   if (d) {
     while ((dir = readdir(d)) != NULL) {
-      if (!isRegFile(dir->d_name)) {
+      if (!isRegFile(dir->d_name) && strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0) {
         RepositoryLock *new_lock = malloc(sizeof(RepositoryLock));
         memset(new_lock, 0, sizeof(new_lock));
         new_lock->next = NULL;
@@ -73,10 +75,14 @@ int main(int argc, char **argv) {
         strcpy(new_lock->project_name, dir->d_name);
         pthread_mutex_init(&(new_lock->lock), NULL);
         RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
-        while (curr->next != NULL) {
-          curr = curr->next;
+        if (curr == NULL) {
+          HEAD_REPOSITORY_LOCK = new_lock;
+        } else {
+          while (curr->next != NULL) {
+            curr = curr->next;
+          }
+          curr->next = new_lock;
         }
-        curr->next = new_lock;
       }
     }
     closedir(d);
@@ -86,6 +92,13 @@ int main(int argc, char **argv) {
   }
 
   printf("Server has started up Successfully. Listening for Connections...\n");
+
+  printf("all repo locks:\n");
+  RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
+  while (curr != NULL) {
+    printf("\t%s %p\n", curr->project_name, &curr->lock);
+    curr = curr->next;
+  }
 
   while (1) {
     //Listen for incoming connections
@@ -104,6 +117,13 @@ int main(int argc, char **argv) {
 }
 
 /**
+ * sigint handler, will call wtf_server_exit_handler
+ */
+void sigintHandler(int signum) {
+  wtf_server_exit_handler();
+}
+
+/**
  * Exit Handler for wtf_server
  * 
  * Close ports and sockets and free mem
@@ -112,7 +132,20 @@ int main(int argc, char **argv) {
 static void wtf_server_exit_handler(void) {
   printf("Handling exit safely. Freeing alloc'd memory...\n");
   close(SOCKET_FD);
+
+  //destroy and free locks
+  RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
+  RepositoryLock *next;
+  while (curr != NULL) {
+    pthread_mutex_destroy(&(curr->lock));
+    free(curr->project_name);
+    next = curr->next;
+    free(curr);
+    curr = next;
+  }
+
   printf("Successfully handled exit.\n");
+  _exit(0);
 }
 
 void *wtf_process(void *pointer) {
@@ -1348,6 +1381,14 @@ void print_manifest(Manifest *m, int verbose) {
  * lock a specific mutex given the project name
  */
 void lock_repository(char *project_name) {
+  RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
+  while (curr != NULL) {
+    if (strcmp(curr->project_name, project_name) == 0) {
+      pthread_mutex_lock(&(curr->lock));
+      return;
+    }
+    curr = curr->next;
+  }
 }
 
 /**
@@ -1356,6 +1397,14 @@ void lock_repository(char *project_name) {
  * unlock a specific mutex given the project name
  */
 void unlock_repository(char *project_name) {
+  RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
+  while (curr != NULL) {
+    if (strcmp(curr->project_name, project_name) == 0) {
+      pthread_mutex_unlock(&(curr->lock));
+      return;
+    }
+    curr = curr->next;
+  }
 }
 
 /**
