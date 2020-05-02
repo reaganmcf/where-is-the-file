@@ -311,6 +311,26 @@ int main(int argc, char **argv) {
     //All ready, create a connection handler and call server
     int result = wtf_upgrade(project_name);
 
+  } else if (strcmp(command, "checkout") == 0) {
+    //Check for params
+    if (argc != 3) {
+      wtf_perror(E_IMPROPER_CHECKOUT_PARAMS, 1);
+    }
+    char *project_name = argv[2];
+    //Check that the project name does not contain : which is our delimeter
+    char *temp = argv[2];
+    int safe = 1;
+    while (temp[0] != '\0') {
+      if (temp[0] == ':') safe = 0;
+      temp++;
+    }
+
+    if (safe == 0) {
+      wtf_perror(E_IMPROPER_UPDATE_PROJECT_NAME, FATAL_ERROR);
+    }
+
+    //All ready, create a connection handler and call server
+    int result = wtf_checkout(project_name);
   } else {
     wtf_perror(E_NO_COMMAND_PROVIDED, FATAL_ERROR);
   }
@@ -332,6 +352,120 @@ static void wtf_exit_handler(void) {
 }
 
 /**
+ * Checkout command
+ * 
+ * Fetch the entire project from the server
+ * 
+ * Returns
+ *  0 = Failure
+ *  1 = Success
+ */
+int wtf_checkout(char *project_name) {
+  //Check that the project does not exist on the client already
+  DIR *dir = opendir(project_name);
+  if (dir) {
+    closedir(dir);
+    wtf_perror(E_CANNOT_CHECKOUT_PROJECT_ALREADY_EXISTS, FATAL_ERROR);
+  }
+  //Fetch server manifest
+  Manifest *server_manifest = fetch_server_manifest(project_name);
+
+  //We need to loop over all of the files and create the file locally and write the contents
+  char *buffer = malloc(1000);
+  char *dir_path = malloc(1000);
+  char *mid_buffer = malloc(1000);
+  memset(dir_path, 0, 1000);
+
+  wtf_connection *connection = wtf_connect();
+
+  int i;
+  int fd;
+  int k;
+  int slash_index;
+  char *file_contents_buffer;
+  for (i = 0; i < server_manifest->file_count; i++) {
+    memset(buffer, 0, 1000);
+    char *file_path = server_manifest->files[i]->file_path;
+
+    //extract dir path since we have to create sub dirs
+    k = 0;
+    slash_index = 0;
+    while (file_path[k] != 0) {
+      if (file_path[k] == '/')
+        slash_index = k;
+      k++;
+    }
+
+    sprintf(buffer, "./%s", dir_path);
+    dir = opendir(buffer);
+    if (dir) {
+      closedir(dir);
+    } else {
+      memset(buffer, 0, 1000);
+      sprintf(buffer, "mkdir -p %s &> /dev/null", dir_path);
+      system(buffer);
+    }
+
+    //Fetch file contents
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_GET_FILE_CONTENTS), COMMAND_GET_FILE_CONTENTS, strlen(file_path), file_path);
+    int msg_size = strlen(buffer) + 1;
+    write(connection->socket, &msg_size, sizeof(int));
+    write(connection->socket, buffer, msg_size);
+
+    memset(buffer, 0, 1000);
+    read(connection->socket, buffer, 1);
+    if (buffer[0] == '1') {
+      //all good, read more
+      read(connection->socket, buffer, 1);  //read past :
+      memset(buffer, 0, 1);
+      while (buffer[0] != ':') {  //read file content size
+        sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
+        read(connection->socket, buffer, 1);
+      }
+      int file_size = atoi(buffer);
+      file_contents_buffer = malloc(file_size + 1);
+      memset(file_contents_buffer, 0, file_size + 1);
+      read(connection->socket, file_contents_buffer, file_size);
+      printf("Retrieved file contents for %s\n", file_contents_buffer);
+
+      fd = open(file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+      if (fd == -1) {
+        printf("Coulnd't open %s\n", file_path);
+        free(buffer);
+        free(dir_path);
+        free_manifest(server_manifest);
+        free(file_contents_buffer);
+        close(connection->socket);
+        free(connection);
+        wtf_perror(E_CANNOT_CHECKOUT_CANT_WRITE_FILE, FATAL_ERROR);
+      }
+
+      write(fd, file_contents_buffer, strlen(file_contents_buffer));
+      free(file_contents_buffer);
+    } else {
+      free(buffer);
+      free(dir_path);
+      free_manifest(server_manifest);
+      free(file_contents_buffer);
+      close(connection->socket);
+      free(connection);
+      wtf_perror(E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS, FATAL_ERROR);
+    }
+  }
+
+  //Write out manifest
+  write_manifest(server_manifest);
+  free(buffer);
+  free(dir_path);
+  free_manifest(server_manifest);
+  free(file_contents_buffer);
+  close(connection->socket);
+  free(connection);
+  return 1;
+}
+
+/**
  * Upgrade command
  * 
  * Apply all of the operations listed in .Update
@@ -350,6 +484,8 @@ int wtf_upgrade(char *project_name) {
   sprintf(buffer, "./%s/.Conflict", project_name);
   if (access(buffer, F_OK) == 0) {
     free(buffer);
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_UPGRADE_CONFLICT_EXISTS, FATAL_ERROR);
   }
 
@@ -358,6 +494,8 @@ int wtf_upgrade(char *project_name) {
   sprintf(buffer, "./%s/.Update", project_name);
   if (access(buffer, F_OK) != 0) {
     free(buffer);
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_UPGRADE_NO_UPDATE, FATAL_ERROR);
   }
 
@@ -368,6 +506,8 @@ int wtf_upgrade(char *project_name) {
   if (fd == -1) {
     free(update_raw);
     free(buffer);
+    close(connection->socket);
+    free(connection);
     wtf_perror(E_CANNOT_READ_UPDATE_FILE, FATAL_ERROR);
   }
   read(fd, update_raw, 100000);
@@ -378,9 +518,10 @@ int wtf_upgrade(char *project_name) {
     system(buffer);
     close(fd);
     free(buffer);
+    close(connection->socket);
+    free(connection);
     free(update_raw);
   }
-
   close(fd);
 
   //Load update_raw into custom UpdateOperation array
@@ -420,6 +561,7 @@ int wtf_upgrade(char *project_name) {
     }
     update_copy++;
   }
+  free(update_raw);
 
   printf("upgrade_ops finished. total of %d\n", upgrade_op_count);
   //go over all upgrade ops and fetch from the server the contents of the file if the OPCODE is M or A
@@ -436,8 +578,8 @@ int wtf_upgrade(char *project_name) {
       write(connection->socket, &msg_size, sizeof(int));
       write(connection->socket, buffer, strlen(buffer) + 1);
       memset(buffer, 0, 1000);
-      read(connection->socket, buffer, 1);
-      if (buffer[0] == '1') {
+      read(connection->socket, buffer, 2);
+      if (strlen(buffer) == 1 && buffer[0] == '1') {
         //all good, read more
         read(connection->socket, buffer, 1);  //read past :
         memset(buffer, 0, 1);
@@ -453,9 +595,11 @@ int wtf_upgrade(char *project_name) {
       } else {
         //error happened when grabbing file from server
         for (j = 0; j < 1000; j++) {
-          free(upgrade_ops[j]->contents);
-          free(upgrade_ops[j]->file_path);
-          free(upgrade_ops[j]);
+          if (upgrade_ops[j] != NULL) {
+            free(upgrade_ops[j]->contents);
+            free(upgrade_ops[j]->file_path);
+            free(upgrade_ops[j]);
+          }
         }
         free(upgrade_ops);
         free(buffer);
@@ -486,7 +630,7 @@ int wtf_upgrade(char *project_name) {
       printf("\tdir subtree is %s\n", dir_paths);
 
       memset(buffer, 0, 1000);
-      sprintf(buffer, "./Projects/%s", dir_paths);
+      sprintf(buffer, "./%s", dir_paths);
       DIR *dir = opendir(buffer);
       if (dir) {
         closedir(dir);
@@ -495,14 +639,17 @@ int wtf_upgrade(char *project_name) {
         sprintf(buffer, "mkdir -p %s &> /dev/null", dir_paths);
         system(buffer);
       }
+      free(dir_paths);
 
       fd = open(upgrade_ops[i]->file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
       if (fd == -1) {
         printf("couldn't open %s\n", upgrade_ops[i]->file_path);
         for (j = 0; j < 1000; j++) {
-          free(upgrade_ops[j]->contents);
-          free(upgrade_ops[j]->file_path);
-          free(upgrade_ops[j]);
+          if (upgrade_ops[j] != NULL) {
+            free(upgrade_ops[j]->contents);
+            free(upgrade_ops[j]->file_path);
+            free(upgrade_ops[j]);
+          }
         }
         free(upgrade_ops);
         free(buffer);
@@ -527,13 +674,18 @@ int wtf_upgrade(char *project_name) {
   sprintf(buffer, "rm ./%s/.Update &> /dev/null", project_name);
   system(buffer);
 
+  Manifest *server_manifest = fetch_server_manifest(project_name);
+  write_manifest(server_manifest);
+
   printf("Successfully performed operations listed in .Update\n");
 
-  // for (j = 0; j < 1000; j++) {
-  //   free(upgrade_ops[j]->contents);
-  //   free(upgrade_ops[j]->file_path);
-  //   free(upgrade_ops[j]);
-  // }
+  for (j = 0; j < 1000; j++) {
+    if (upgrade_ops[j] != NULL) {
+      free(upgrade_ops[j]->contents);
+      free(upgrade_ops[j]->file_path);
+      free(upgrade_ops[j]);
+    }
+  }
   free(upgrade_ops);
   free(buffer);
   free(mid_buffer);
@@ -710,6 +862,22 @@ int wtf_update(char *project_name) {
       sprintf(buffer, "rm ./%s/.Update", project_name);
       system(buffer);
     }
+
+    //write .Conflict
+    memset(buffer, 0, 1000);
+    sprintf(buffer, "./%s/.Conflict", project_name);
+    int fd = open(buffer, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+      free(update_buffer);
+      free(conflict_buffer);
+      free(buffer);
+      free_manifest(server_manifest);
+      free_manifest(client_manifest);
+      wtf_perror(E_CANNOT_WRITE_CONFLICT, FATAL_ERROR);
+    }
+    write(fd, conflict_buffer, strlen(conflict_buffer));
+    close(fd);
+
     free(update_buffer);
     free(conflict_buffer);
     free(buffer);
@@ -1719,7 +1887,7 @@ int wtf_add(char *project_name, char *file_name) {
   //append the project name to the file
   char *file = malloc(strlen(project_name) + strlen(file_name) + 10);
   memset(file, 0, strlen(project_name) + strlen(file_name) + 10);
-  sprintf(file, "./%s/%s", project_name, file_name);
+  sprintf(file, "%s/%s", project_name, file_name);
 
   //Check if the file exists in the project
   if (!isRegFile(file)) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, FATAL_ERROR);

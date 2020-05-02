@@ -332,6 +332,7 @@ char *wtf_server_get_file_contents(char *file_path) {
   //Check if the file exists
   if (access(buffer, F_OK) == -1) {
     free(buffer);
+    wtf_perror(E_FILE_DOESNT_EXIST, NON_FATAL_ERROR);
     sprintf(ret_buffer, "%d", E_FILE_DOESNT_EXIST);
     return ret_buffer;
   }
@@ -356,6 +357,7 @@ char *wtf_server_get_file_contents(char *file_path) {
   }
 
   //file is fully read, build buffer
+  memset(ret_buffer, 0, 500000);
   sprintf(ret_buffer, "1:%d:%s", strlen(file_buffer), file_buffer);
   printf("\tSuccessfully read %d bytes from %s\n", strlen(file_buffer), file_path);
   return ret_buffer;

@@ -87,7 +87,12 @@ enum _error_codes {
   E_CANNOT_UPGRADE_CONFLICT_EXISTS = 56,
   E_CANNOT_UPGRADE_NO_UPDATE = 57,
   E_SERVER_CANNOT_FIND_FILE = 58,
-  E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE = 59
+  E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE = 59,
+  E_CANNOT_WRITE_CONFLICT = 60,
+  E_IMPROPER_CHECKOUT_PARAMS = 61,
+  E_CANNOT_CHECKOUT_PROJECT_ALREADY_EXISTS = 62,
+  E_CANNOT_CHECKOUT_CANT_WRITE_FILE = 63,
+  E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS = 64
 };
 
 typedef enum _error_codes wtf_error;
@@ -155,7 +160,12 @@ struct _error_desc {
     {E_CANNOT_UPGRADE_CONFLICT_EXISTS, "Cannot upgrade because .Conflict exists that must be resolved first."},
     {E_CANNOT_UPGRADE_NO_UPDATE, "Cannot upgrade because there is no .Update file. Please run ./WTF update first"},
     {E_SERVER_CANNOT_FIND_FILE, "Cannot upgrade because server couldn't find the file(s) listed in .Update"},
-    {E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE, "Cannot upgrade because was unable to open or create the file(s) listed in .Update"}
+    {E_CANNOT_UPGRADE_CANT_OPEN_OR_CREATE_FILE, "Cannot upgrade because was unable to open or create the file(s) listed in .Update"},
+    {E_CANNOT_WRITE_CONFLICT, "Improper permissions to write .Conflict"},
+    {E_IMPROPER_CHECKOUT_PARAMS, "Improper params for checkout command. Please follow the format of ./WTF checkout <project-name>"},
+    {E_CANNOT_CHECKOUT_PROJECT_ALREADY_EXISTS, "Cannot checkout because the project already exists on the client side."},
+    {E_CANNOT_CHECKOUT_CANT_WRITE_FILE, "Cannot checkout because unable to write files to the project directory."},
+    {E_CANNOT_CHECKOUT_FAILED_TO_GET_FILE_CONTENTS, "Cannot checkout because was unable to retrieve file contents from the server."}
 
 };
 
