@@ -1518,13 +1518,18 @@ int wtf_commit(char *project_name) {
  * 
  * Removes a given file from the project's .Manifest
  */
-int wtf_remove(char *project_name, char *file) {
+int wtf_remove(char *project_name, char *file_path) {
   Manifest *client_manifest = fetch_client_manifest(project_name);
+
+  char *file = malloc(1000);
+  memset(file, 0, 1000);
+  sprintf(file, "%s/%s", project_name, file_path);
 
   //Check that the file exists in the manifest
   int i;
   int index = -1;  //index where file is in client_manifest->files
   for (i = 0; i < client_manifest->file_count; i++) {
+    printf("comparing %s and %s\n", client_manifest->files[i]->file_path, file);
     if (strcmp(client_manifest->files[i]->file_path, file) == 0)
       index = i;
   }
@@ -1535,8 +1540,10 @@ int wtf_remove(char *project_name, char *file) {
   }
 
   free(client_manifest->files[index]->file_path);
+  client_manifest->files[index]->file_path = NULL;
   write_manifest(client_manifest);
-  //free_manifest(client_manifest);  // why does this cause a crash?
+  free(file);
+  free_manifest(client_manifest);  // why does this cause a crash?
   return 1;
 }
 
@@ -1580,7 +1587,7 @@ int write_manifest(Manifest *manifest) {
   //write all file entries
   int i;
   for (i = 0; i < manifest->file_count; i++) {
-    if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
+    if (manifest->files[i]->file_path == NULL) continue;  //skip over this file, means it is being deleted from the .Manifest
     //Construct entry string
     memset(buffer, 0, 500);
     sprintf(buffer, "\n~ ");
