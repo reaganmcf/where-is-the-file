@@ -1299,8 +1299,10 @@ int wtf_commit(char *project_name) {
       free(server_manifest);
       close(connection->socket);
       free(connection);
+      close(fd);
       wtf_perror(E_CANNOT_COMMIT_NON_EMPTY_UPDATE_EXISTS, FATAL_ERROR);
     }
+    close(fd);
   }
 
   //.Conflict exists check
@@ -1327,8 +1329,7 @@ int wtf_commit(char *project_name) {
 
   //Rehash client's files
   int i;
-  char *hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
-  memset(hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
+  char *hash;
   for (i = 0; i < client_manifest->file_count; i++) {
     // printf("Old hash: %s\n", client_manifest->files[i]->hash);
     hash = hash_file(client_manifest->files[i]->file_path);
@@ -1336,7 +1337,7 @@ int wtf_commit(char *project_name) {
     memset(client_manifest->files[i]->new_hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
     strncpy(client_manifest->files[i]->new_hash, hash, strlen(hash));
     // printf("New hash: %s\n", client_manifest->files[i]->new_hash);
-
+    free(hash);
     //if they are not equal then increment the version number
     if (strcmp(client_manifest->files[i]->hash, client_manifest->files[i]->new_hash) != 0) client_manifest->files[i]->version_number++;
   }
@@ -1496,6 +1497,15 @@ int wtf_commit(char *project_name) {
     printf("Successfully sent .Commit to the Server\n");
   } else {
     //error checks handling here
+    free(buffer);
+    free(commit_buffer);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+    close(fd);
+    free(hash);
+    close(connection->socket);
+    free(connection);
+    free(server_buffer);
     wtf_perror(E_SERVER_CANNOT_READ_OR_WRITE_NEW_COMMIT, NON_FATAL_ERROR);
   }
 

@@ -1,3 +1,13 @@
 project
-4
-~ project/folder/file2:0:871be17d232473dbc886a1e6bb50e4d3456cd434:
+5
+~ project/test:1141318288:da39a3ee5e6b4b0d3255bfef95601890afd80709:
+
+    free(buffer);
+    free(commit_buffer);
+    free_manifest(server_manifest);
+    free_manifest(client_manifest);
+close(fd);
+    free(hash);
+    close(connection->socket);
+    free(connection);
+free(server_buffer);
