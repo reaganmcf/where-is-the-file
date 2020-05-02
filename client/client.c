@@ -378,6 +378,11 @@ int wtf_checkout(char *project_name) {
 
   wtf_connection *connection = wtf_connect();
 
+  //create project dir
+  memset(buffer, 0, 1000);
+  sprintf(buffer, "mkdir ./%s", project_name);
+  system(buffer);
+
   int i;
   int fd;
   int k;
@@ -385,6 +390,7 @@ int wtf_checkout(char *project_name) {
   char *file_contents_buffer;
   for (i = 0; i < server_manifest->file_count; i++) {
     memset(buffer, 0, 1000);
+    memset(dir_path, 0, 1000);
     char *file_path = server_manifest->files[i]->file_path;
 
     //extract dir path since we have to create sub dirs
@@ -396,7 +402,8 @@ int wtf_checkout(char *project_name) {
       k++;
     }
 
-    sprintf(buffer, "./%s", dir_path);
+    strncpy(dir_path, file_path, slash_index + 1);
+    printf("sub dirs are %s\n", dir_path);
     dir = opendir(buffer);
     if (dir) {
       closedir(dir);
@@ -423,11 +430,13 @@ int wtf_checkout(char *project_name) {
         sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
         read(connection->socket, buffer, 1);
       }
-      int file_size = atoi(buffer);
+      int file_size = atoi(mid_buffer);
       file_contents_buffer = malloc(file_size + 1);
       memset(file_contents_buffer, 0, file_size + 1);
+      printf("file size is %d\n", file_size);
       read(connection->socket, file_contents_buffer, file_size);
-      printf("Retrieved file contents for %s\n", file_contents_buffer);
+      printf("Retrieved file contents for %s\n", file_path);
+      printf("\t%s\n", file_contents_buffer);
 
       fd = open(file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
       if (fd == -1) {
@@ -435,6 +444,7 @@ int wtf_checkout(char *project_name) {
         free(buffer);
         free(dir_path);
         free_manifest(server_manifest);
+        free(mid_buffer);
         free(file_contents_buffer);
         close(connection->socket);
         free(connection);
@@ -447,6 +457,7 @@ int wtf_checkout(char *project_name) {
       free(buffer);
       free(dir_path);
       free_manifest(server_manifest);
+      free(mid_buffer);
       free(file_contents_buffer);
       close(connection->socket);
       free(connection);
@@ -458,8 +469,8 @@ int wtf_checkout(char *project_name) {
   write_manifest(server_manifest);
   free(buffer);
   free(dir_path);
+  free(mid_buffer);
   free_manifest(server_manifest);
-  free(file_contents_buffer);
   close(connection->socket);
   free(connection);
   return 1;
