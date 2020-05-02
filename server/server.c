@@ -434,6 +434,7 @@ char *wtf_server_get_file_contents(char *file_path) {
  *  10 = E_PROJECT_VERSION_DOESNT_EXIST
  */
 int wtf_server_rollback_project(char *project_name, int version_number) {
+  lock_repository(project_name);
   //First loop over directory and check if the project actually exists
   DIR *d;
   struct dirent *dir;
@@ -605,6 +606,7 @@ int wtf_server_destroy_project(char *project_name) {
  * fetches the project's .History file and returns a string containing its contents
  */
 char *wtf_server_get_history(char *project_name) {
+  lock_repository(project_name);
   char *buffer = malloc(200);
   char *mid_buffer = malloc(99999);
   char *ret = malloc(100000);
@@ -632,6 +634,7 @@ char *wtf_server_get_history(char *project_name) {
     sprintf(ret, "2");
     free(buffer);
     free(mid_buffer);
+    unlock_repository(project_name);
     return ret;
   }
 
@@ -640,6 +643,7 @@ char *wtf_server_get_history(char *project_name) {
     sprintf(ret, "3");
     free(buffer);
     free(mid_buffer);
+    unlock_repository(project_name);
     return ret;
   }
 
@@ -651,6 +655,7 @@ char *wtf_server_get_history(char *project_name) {
     sprintf(ret, "1:%d:%s", strlen(t), t);
     free(mid_buffer);
     free(buffer);
+    unlock_repository(project_name);
     return ret;
   }
 
@@ -662,6 +667,7 @@ char *wtf_server_get_history(char *project_name) {
     sprintf(ret, "2");
     free(buffer);
     free(mid_buffer);
+    unlock_repository(project_name);
     return ret;
   }
   memset(buffer, 0, 2);
@@ -675,6 +681,7 @@ char *wtf_server_get_history(char *project_name) {
   free(buffer);
   free(mid_buffer);
   close(fd);
+  unlock_repository(project_name);
   return ret;
 }
 
