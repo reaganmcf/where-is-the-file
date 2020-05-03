@@ -704,9 +704,9 @@ int wtf_upgrade(char *project_name) {
       close(fd);
     } else {
       //Delete operation
-      memset(buffer, 0, 1000);
-      sprintf(buffer, "rm %s &> /dev/null", upgrade_ops[i]->file_path);
-      system(buffer);
+      // memset(buffer, 0, 1000);
+      // sprintf(buffer, "rm %s &> /dev/null", upgrade_ops[i]->file_path);
+      // system(buffer);
 
       //sanitize project
       sanitize_project(project_name);
