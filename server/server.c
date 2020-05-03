@@ -376,12 +376,24 @@ void *wtf_process(void *pointer) {
  *  "11" = E_FILE_DOESNT_EXIST
  */
 char *wtf_server_get_file_contents(char *file_path) {
+  //lock repo
+
   char *buffer = malloc(1000);
   char *ret_buffer = malloc(500000);
   char *file_buffer = malloc(450000);
   memset(buffer, 0, 1000);
   memset(ret_buffer, 0, 500000);
   memset(file_buffer, 0, 450000);
+
+  //we need to extract project name from the string
+  int i = 0;
+  for (i = 0; i < strlen(file_path); i++) {
+    if (file_path[i] == '/') break;
+    sprintf(buffer, "%s%c", buffer, file_path[i]);
+  }
+
+  printf("project name is %s", buffer);
+
   sprintf(buffer, "./Projects/%s", file_path);
 
   //Check if the file exists
@@ -410,6 +422,7 @@ char *wtf_server_get_file_contents(char *file_path) {
     sprintf(file_buffer, "%s%c", file_buffer, buffer[0]);
     n = read(fd, buffer, 1);
   }
+  close(fd);
 
   //file is fully read, build buffer
   memset(ret_buffer, 0, 500000);
@@ -748,9 +761,13 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   print_manifest(manifest, 0);
   int version_number = manifest->version_number;
 
+  printf("here\n");
+
   //delete current commit now that commit ops are made
   memset(buffer, 0, 1000);
+  printf("here1\n");
   sprintf(buffer, "rm ./Projects/%s/%s", project_name, target_commit_file_name);
+  printf("here2\n");
   printf("%s\n", buffer);
   system(buffer);
 
@@ -1281,7 +1298,9 @@ Manifest *fetch_manifest(char *project_name) {
   }
 
   Manifest *client_manifest = malloc(sizeof(Manifest));
+  memset(client_manifest, 0, sizeof(Manifest));
   client_manifest->project_name = malloc(strlen(project_name) + 1);
+  memset(client_manifest->project_name, 0, strlen(project_name) + 1);
   strcpy(client_manifest->project_name, project_name);
 
   int lines = 0;
