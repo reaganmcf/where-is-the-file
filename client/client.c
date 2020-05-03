@@ -619,14 +619,14 @@ int wtf_upgrade(char *project_name) {
       write(connection->socket, buffer, strlen(buffer) + 1);
       memset(buffer, 0, 1000);
       read(connection->socket, buffer, 2);
-      if (strlen(buffer) == 1 && buffer[0] == '1') {
+      if (strlen(buffer) >= 1 && buffer[0] == '1') {
         //all good, read more
-        read(connection->socket, buffer, 1);  //read past :
         memset(buffer, 0, 1);
         while (buffer[0] != ':') {
           sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
           read(connection->socket, buffer, 1);
         }
+        printf("buffer is %s. mid_buffer is %s\n", buffer, mid_buffer);
         int file_size = atoi(mid_buffer);
         upgrade_ops[i]->contents = malloc(file_size + 1);
         memset(upgrade_ops[i]->contents, 0, file_size + 1);
@@ -679,7 +679,7 @@ int wtf_upgrade(char *project_name) {
         sprintf(buffer, "mkdir -p %s &> /dev/null", dir_paths);
         system(buffer);
       }
-      closedir(dir);
+      // closedir(dir);
       free(dir_paths);
 
       fd = open(upgrade_ops[i]->file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
