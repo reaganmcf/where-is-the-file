@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 int main(int argc, char** argv) {
-  int PORT_NUMBER = (rand() % (10000 - 1000 + 1)) + 1000;
+  int PORT_NUMBER = 5203;
 
   char* buffer = malloc(500);
 
@@ -38,7 +38,27 @@ int main(int argc, char** argv) {
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "./WTF add project project/file1");
+  sprintf(buffer, "./WTF add project file1");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "./WTF commit project");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "./WTF push project");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "touch ./project/file2");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "echo some text > ./project/file2");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "./WTF add project file2");
   system(buffer);
 
   memset(buffer, 0, 500);

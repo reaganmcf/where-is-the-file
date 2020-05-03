@@ -848,9 +848,11 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   new_manifest->version_number = manifest->version_number + 1;
   new_manifest->project_name = malloc(strlen(manifest->project_name) + 1);
   strcpy(new_manifest->project_name, manifest->project_name);
-  new_manifest->file_count = non_delete_commit_op_count;
-  new_manifest->files = malloc(sizeof(ManifestFileEntry *) * non_delete_commit_op_count);
+  new_manifest->file_count = non_delete_commit_op_count + manifest->file_count;
+  printf("size of newman file count is %d\n", new_manifest->file_count);
+  new_manifest->files = malloc(sizeof(ManifestFileEntry *) * (non_delete_commit_op_count + manifest->file_count));
 
+  int new_man_idx = 0;
   //CommitOperations built here and ready to be applied
   int fd;
   for (i = 0; i < commit_op_count; i++) {
@@ -862,15 +864,15 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     sprintf(buffer, "./Projects/%s", commit_ops[i]->file_path);
     if (commit_ops[i]->op_code == OPCODE_ADD || commit_ops[i]->op_code == OPCODE_MODIFY) {
       printf("\tadding/modifying\n");
-      new_manifest->files[i] = malloc(sizeof(ManifestFileEntry));
-      new_manifest->files[i]->file_path = malloc(strlen(commit_ops[i]->file_path) + 1);
-      strcpy(new_manifest->files[i]->file_path, commit_ops[i]->file_path);
-      new_manifest->files[i]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
+      new_manifest->files[new_man_idx] = malloc(sizeof(ManifestFileEntry));
+      new_manifest->files[new_man_idx]->file_path = malloc(strlen(commit_ops[i]->file_path) + 1);
+      strcpy(new_manifest->files[new_man_idx]->file_path, commit_ops[i]->file_path);
+      new_manifest->files[new_man_idx]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
       memset(new_manifest->files[i]->hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
       printf("going to be hasing %s\n", commit_ops[i]->contents);
-      new_manifest->files[i]->hash = hash_string(commit_ops[i]->contents);
-      new_manifest->files[i]->op_code = OPCODE_NONE;
-      new_manifest->files[i]->seen_by_server = 1;
+      new_manifest->files[new_man_idx]->hash = hash_string(commit_ops[i]->contents);
+      new_manifest->files[new_man_idx]->op_code = OPCODE_NONE;
+      new_manifest->files[new_man_idx]->seen_by_server = 1;
 
       //if modify, delete the file and we will write it again
       if (commit_ops[i]->op_code == OPCODE_MODIFY) {
@@ -904,6 +906,8 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
       }
       write(fd, commit_ops[i]->contents, strlen(commit_ops[i]->contents));
       close(fd);
+
+      new_man_idx++;
     } else {
       //has to be delete
       memset(buffer, 0, 1000);
@@ -915,7 +919,32 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     }
   }
 
+  //loop over manifest, and if the old manfiest has any files that are not in commit_ops, add them back
+  int is_in_commit_ops;
+  for (i = 0; i < manifest->file_count; i++) {
+    is_in_commit_ops = 0;
+    for (j = 0; j < commit_op_count; j++) {
+      if (strcmp(manifest->files[i]->file_path, commit_ops[j]->file_path) == 0) is_in_commit_ops = 1;
+    }
+    if (is_in_commit_ops == 0) {
+      int index = new_man_idx;
+      new_manifest->files[index] = malloc(sizeof(ManifestFileEntry));
+      new_manifest->files[index]->file_path = malloc(strlen(manifest->files[i]->file_path) + 1);
+      memset(new_manifest->files[index]->file_path, 0, strlen(manifest->files[i]->file_path) + 1);
+      strcpy(new_manifest->files[index]->file_path, manifest->files[i]->file_path);
+      new_manifest->files[index]->hash = malloc(strlen(manifest->files[i]->hash) + 1);
+      memset(new_manifest->files[index]->hash, 0, strlen(manifest->files[i]->hash) + 1);
+      strcpy(new_manifest->files[index]->hash, manifest->files[i]->hash);
+      new_manifest->files[index]->version_number = manifest->files[i]->version_number;
+      new_manifest->files[index]->seen_by_server = 1;
+      new_manifest->files[index]->op_code = OPCODE_NONE;
+      new_man_idx++;
+    }
+  }
+
   close(history_fd);
+
+  print_manifest(new_manifest, 0);
 
   //write new manifest
   write_manifest(new_manifest);
