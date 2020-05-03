@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     //check if the first or last char is a / ./
     char substr[100];
     memset(substr, 0, 100);
-    strncpy(substr, argv[i], 2);
+    strncpy(substr, argv[i], strlen(argv[i]));
     if (strlen(substr) >= 2) {
       if (substr[0] == '.' && substr[1] == '/') {
         params_are_safe = 0;
@@ -1637,11 +1637,11 @@ int write_manifest(Manifest *manifest) {
     if (manifest->files[i]->op_code != OPCODE_NONE) {
       sprintf(buffer, "%s%c:", buffer, manifest->files[i]->op_code);
     }
-    sprintf(buffer, "%s%s:%d:%s", buffer, manifest->files[i]->file_path, manifest->files[i]->version_number, manifest->files[i]->hash);
+    sprintf(buffer, "%s%s:%d:%s:", buffer, manifest->files[i]->file_path, manifest->files[i]->version_number, manifest->files[i]->hash);
     if (manifest->files[i]->seen_by_server == 0) {
-      sprintf(buffer, "%s:!", buffer);
+      sprintf(buffer, "%s!", buffer);
     }
-    sprintf(buffer, "%s:", buffer);
+    sprintf(buffer, "%s", buffer);
     write(fd, buffer, strlen(buffer));
   }
 
@@ -1951,7 +1951,7 @@ int wtf_add(char *project_name, char *file_name) {
   sprintf(file, "%s/%s", project_name, file_name);
 
   //Check if the file exists in the project
-  if (!isRegFile(file)) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, FATAL_ERROR);
+  if (access(file, F_OK) != 0) wtf_perror(E_FILE_DOESNT_EXIST_TO_ADD, FATAL_ERROR);
 
   //check if file already exists in the manifest
   char *buffer = malloc(150);

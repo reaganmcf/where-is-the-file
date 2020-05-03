@@ -20,6 +20,8 @@ Since the server doesn't exit when it finishes handling a connection, memory all
 
 When the server does exit, crash, or recieves SIGINT, we also made sure to properly intercept these by using `atexit()` and `signal()`. If any of these happen, it will make sure to `pthread_mutex_destory` all `RepositoryLocks` and stop listening for incoming connections before terminating the process.
 
+Another decision we had to make also was dealing with version numbers after `push()` is handeled by the server. The instructions state the commit **does not contain version numbers**, which means that the server has no idea what to write the new files to the .Manifest as, so we decided to **reset all file version numbers ot 1 for both the client and server** after a successful push.
+
 ---
 
 Our client had to be modular to allow for a readable codebase when the project is as complex and large as this one. For this, we made sure to abstract out common functions, such as `hash_file(char* file_path)`, `fetch_client_manifest(char* project_name)`, `fetch_server_manifest(char* project_name)`, and more. This greatly reduces the amount of code we have to write on the client side and allows for a much more stable program as we don't have to make the same change in multiple locations.

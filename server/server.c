@@ -873,6 +873,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
       new_manifest->files[new_man_idx]->hash = hash_string(commit_ops[i]->contents);
       new_manifest->files[new_man_idx]->op_code = OPCODE_NONE;
       new_manifest->files[new_man_idx]->seen_by_server = 1;
+      new_manifest->files[new_man_idx]->version_number = 1;
 
       //if modify, delete the file and we will write it again
       if (commit_ops[i]->op_code == OPCODE_MODIFY) {
