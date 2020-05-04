@@ -1,2 +1,2 @@
-WTFserver  85458 rpm141    3u  IPv4 1318971014      0t0  TCP *:sd (LISTEN)
-WTFserver  85458 rpm141    5u  IPv4 1318971056      0t0  TCP localhost:sd->localhost:51912 (CLOSE_WAIT)
+WTFserver 205542 rpm141    3u  IPv4 1319499201      0t0  TCP *:5823 (LISTEN)
+WTFserver 205542 rpm141    5u  IPv4 1319481960      0t0  TCP localhost:5823->localhost:40304 (CLOSE_WAIT)

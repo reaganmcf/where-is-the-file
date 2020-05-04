@@ -6,9 +6,8 @@
 #include <unistd.h>
 
 int main(int argc, char** argv) {
-  int lower = 2000;
-  int upper = 10000;
-  int PORT_NUMBER = (rand() % (upper - lower + 1)) + lower;
+  int lower = 2000, upper = 10000;
+  int PORT_NUMBER = 5823;
 
   char* buffer = malloc(500);
 
