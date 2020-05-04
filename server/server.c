@@ -44,6 +44,11 @@ int main(int argc, char **argv) {
     wtf_perror(E_ERROR_MAKING_SOCKET, FATAL_ERROR);
   }
 
+  int one = 1;
+  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
+    printf("failed to setup reuse addr\n");
+  }
+
   SOCKET_FD = sock;
 
   //Bind socket to port
@@ -65,6 +70,7 @@ int main(int argc, char **argv) {
   //Initialize repo locks
   DIR *d;
   struct dirent *dir;
+  mkdir("./Projects/ &> /dev/null", 0700);
   d = opendir("./Projects/");
   if (d) {
     while ((dir = readdir(d)) != NULL) {

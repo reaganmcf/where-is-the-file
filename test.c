@@ -6,8 +6,9 @@
 #include <unistd.h>
 
 int main(int argc, char** argv) {
-  int lower = 2000, upper = 10000;
-  int PORT_NUMBER = 5823;
+  int lower = 2000;
+  int upper = 10000;
+  int PORT_NUMBER = (rand() % (upper - lower + 1)) + lower;
 
   char* buffer = malloc(500);
 
@@ -37,6 +38,8 @@ int main(int argc, char** argv) {
 
     close(fd);
   }
+
+  printf("we are going for port %d\n", PORT_NUMBER);
 
   memset(buffer, 0, 500);
   sprintf(buffer, ".tempresult");
@@ -153,7 +156,8 @@ int main(int argc, char** argv) {
   memset(pid, 0, 50);
   int i = 0;
   int offset = 0;
-  while (buffer[i] != '1' || buffer[i] != '2' || buffer[i] != '3' || buffer[i] != '4' || buffer[i] != '5' || buffer[i] != '6' || buffer[i] != '7' || buffer[i] != '8' || buffer[i] != '9') {
+  if (strlen(buffer) == 0) return;
+  while (buffer[i] != '1' && buffer[i] != '2' && buffer[i] != '3' && buffer[i] != '4' && buffer[i] != '5' && buffer[i] != '6' && buffer[i] != '7' && buffer[i] != '8' && buffer[i] != '9') {
     i++;
     offset++;
   }
