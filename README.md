@@ -1,8 +1,8 @@
 # AsstLast
 
-- Note:
+- Note: When we store old versions of the project, we compress them as `.gz` using the `tar()` library. This qualifies us for the +10 points as stated in the project description.
 
-When we store old versions of the project, we compress them as `.gz` using the `tar()` library. This qualifies us for the +10 points as stated in the project description.
+Note: **Client repository copies are stored in the CWD such as `./project/`, `./my_cool_project/`, etc. Server repositories are stored in the `./Projects/` folder.**
 
 ## Implementation (Server and Client)
 Since this project is complex, many of the building blocks need to be very robust for it to work as intended. Because of this, we made sure to create a detailed `.Manifest` structure for the client, as well as Protocol to communicate back and forth between the `CLIENT` and `SERVER` as reliably as possible. We go into more depth about how these are structured below.  
@@ -56,6 +56,12 @@ free(new_connection);
 ```
 
 Now that we had connections and generalized functions sorted out, we needed to create a plan for handling each function input. We modularized this as much as we could by making sure `int main()` doesn't `malloc()` or do any heavy lifting, but just checks the input commands, and passes the values in `argv` to the specific function. We split up each comamnd into its own function with the format of `wtf_push(char* project_name)`, `wtf_commit(char* project_name)`, etc. This made `free()`ing any memory we allocated much easier to track, and allowed us to free all of our memory without much debugging.
+
+### History
+
+The repository contains a `.History` file that shows all of the operations that occurred throughout the history of the project. After push, it will show the new version number, as well as what operations occurred for *this* version.
+
+`rollback` also appends a line detailing the action in `.History`
 
 ### Protocol
 

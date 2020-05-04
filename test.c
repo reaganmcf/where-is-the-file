@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv) {
   int lower = 2000, upper = 10000;
-  int PORT_NUMBER = 10000;
+  int PORT_NUMBER = 5823;
 
   char* buffer = malloc(500);
 
@@ -43,11 +43,15 @@ int main(int argc, char** argv) {
   remove(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "cd ./../server && make && ./WTFserver %d &", PORT_NUMBER);
+  sprintf(buffer, "make");
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "make");
+  sprintf(buffer, "make WTFserver && ./WTFserver %d &", PORT_NUMBER);
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  sprintf(buffer, "make WTF");
   system(buffer);
 
   memset(buffer, 0, 500);
@@ -148,11 +152,18 @@ int main(int argc, char** argv) {
   char* pid = malloc(50);
   memset(pid, 0, 50);
   int i = 0;
-  while (buffer[i + 10] != ' ') {
-    sprintf(pid, "%s%c", pid, buffer[i + 10]);
+  int offset = 0;
+  while (buffer[i] != '1' || buffer[i] != '2' || buffer[i] != '3' || buffer[i] != '4' || buffer[i] != '5' || buffer[i] != '6' || buffer[i] != '7' || buffer[i] != '8' || buffer[i] != '9') {
+    i++;
+    offset++;
+  }
+  i = 0;
+  while (buffer[i + offset] != ' ') {
+    sprintf(pid, "%s%c", pid, buffer[i + offset]);
     i++;
   }
   //find the pid of the server process
+  printf("pid is %s\n", pid);
   sprintf(buffer, "kill -2 %s", pid);
   system(buffer);
 

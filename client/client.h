@@ -6,7 +6,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#define WTF_CONFIGURATION_FILE_PATH "./.configuration"
+#define WTF_CONFIGURATION_FILE_PATH "./client/.configuration"
 #define OPCODE_ADD 'A'
 #define OPCODE_DELETE 'D'
 #define OPCODE_MODIFY 'M'
