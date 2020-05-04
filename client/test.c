@@ -7,14 +7,13 @@
 
 int main(int argc, char** argv) {
   int lower = 2000, upper = 10000;
-  int PORT_NUMBER = 5000;
+  int PORT_NUMBER = 5030;
 
   char* buffer = malloc(500);
 
   //find an open port
   int n = 1;
   while (n >= 1) {
-    PORT_NUMBER = (rand() % (upper - lower + 1)) + lower;
     memset(buffer, 0, 500);
     sprintf(buffer, "grep -w %d /etc/services > .tempresult", PORT_NUMBER);
     system(buffer);
@@ -29,11 +28,10 @@ int main(int argc, char** argv) {
     }
     close(fd);
 
-    memset(buffer, 0, 500);
     n = read(fd, buffer, 20);
     printf("read %d bytes from .tempresult\n", n);
 
-    remove(".tempresult");
+    // remove(".tempresult");
     printf("random port already taken... trying another port in 3 seconds\n");
     sleep(3);
   }
@@ -140,7 +138,7 @@ int main(int argc, char** argv) {
 
   //find the pid of the server process
   memset(buffer, 0, 500);
-  sprintf(buffer, "lsof -i :%d | awk '{system(\"kill -9 \" $2)}' &> /dev/null", PORT_NUMBER);
+  sprintf(buffer, "lsof -i :%d | awk '{system(\"kill -SIGINT \" $2)}' &> /dev/null", PORT_NUMBER);
   system(buffer);
 
   printf("Killed server. All done testing!\n");

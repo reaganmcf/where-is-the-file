@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <zlib.h>
 
+#define SHOULD_PRINT_STATEMENTS 0
+
 /** WTF Client
  * 
  * The WTF client will be handling all of the commands for this project, and will send each command to its proper
@@ -73,7 +75,7 @@ int main(int argc, char **argv) {
 
     int result = wtf_configure_host(hostname, port);
     if (result == 1) {
-      printf("Succesfully configured client.\n");
+      if (SHOULD_PRINT_STATEMENTS) printf("Succesfully configured client.\n");
       return 0;
     } else {
       wtf_perror(E_CONFIGURATION_WRITE_ERROR, FATAL_ERROR);
@@ -118,7 +120,7 @@ int main(int argc, char **argv) {
 
     int result = wtf_add(project_name, file);
     if (result == 1) {
-      printf("Successfully added %s to project manifest\n", file);
+      if (SHOULD_PRINT_STATEMENTS) printf("Successfully added %s to project manifest\n", file);
       return 0;
     } else {
       //Won't ever get here because errors will be handeled inside of wtf_add first
@@ -145,7 +147,7 @@ int main(int argc, char **argv) {
     //All ready, create a connection handler and call the server
     int result = wtf_get_current_version(project_name);
     if (result == 1) {
-      printf("Successfully retrieved project information from the server.\n");
+      if (SHOULD_PRINT_STATEMENTS) printf("Successfully retrieved project information from the server.\n");
       return 0;
     } else {
       //Wont ever get here because errors will be handled inside of wtf_get_current_version first
@@ -187,7 +189,7 @@ int main(int argc, char **argv) {
 
     int result = wtf_remove(project_name, file);
     if (result == 1) {
-      printf("Successfully removed %s from project manifest\n", file);
+      if (SHOULD_PRINT_STATEMENTS) printf("Successfully removed %s from project manifest\n", file);
       return 0;
     } else {
       //Won't ever get here because errors will be handled inside of wtf_add first
@@ -214,7 +216,7 @@ int main(int argc, char **argv) {
     //All ready, create a connection handler and call the server
     int result = wtf_push(project_name);
     if (result == 1) {
-      printf("Successfully retrieved project information from the server.\n");
+      if (SHOULD_PRINT_STATEMENTS) printf("Successfully retrieved project information from the server.\n");
       return 0;
     } else {
       //Wont ever get here because errors will be handled inside of wtf_push first
@@ -372,12 +374,12 @@ int main(int argc, char **argv) {
 }
 
 static void wtf_exit_handler(void) {
-  printf("Handling exit safely. Freeing alloc'd memory...\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Handling exit safely. Freeing alloc'd memory...\n");
   if (CONFIGURATION != NULL) {
     free(CONFIGURATION->hostname);
     free(CONFIGURATION);
   }
-  printf("Successfully handled exit.\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Successfully handled exit.\n");
 }
 
 /**
@@ -409,7 +411,7 @@ int wtf_checkout(char *project_name) {
 
   //create project dir
   memset(buffer, 0, 1000);
-  sprintf(buffer, "mkdir ./%s", project_name);
+  sprintf(buffer, "mkdir ./%s &> /dev/null", project_name);
   system(buffer);
 
   int i;
@@ -432,7 +434,7 @@ int wtf_checkout(char *project_name) {
     }
 
     strncpy(dir_path, file_path, slash_index + 1);
-    printf("sub dirs are %s\n", dir_path);
+    if (SHOULD_PRINT_STATEMENTS) printf("sub dirs are %s\n", dir_path);
     dir = opendir(buffer);
     if (dir) {
       closedir(dir);
@@ -462,14 +464,14 @@ int wtf_checkout(char *project_name) {
       int file_size = atoi(mid_buffer);
       file_contents_buffer = malloc(file_size + 1);
       memset(file_contents_buffer, 0, file_size + 1);
-      printf("file size is %d\n", file_size);
+      if (SHOULD_PRINT_STATEMENTS) printf("file size is %d\n", file_size);
       read(connection->socket, file_contents_buffer, file_size);
-      printf("Retrieved file contents for %s\n", file_path);
-      printf("\t%s\n", file_contents_buffer);
+      if (SHOULD_PRINT_STATEMENTS) printf("Retrieved file contents for %s\n", file_path);
+      if (SHOULD_PRINT_STATEMENTS) printf("\t%s\n", file_contents_buffer);
 
       fd = open(file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
       if (fd == -1) {
-        printf("Coulnd't open %s\n", file_path);
+        if (SHOULD_PRINT_STATEMENTS) printf("Coulnd't open %s\n", file_path);
         free(buffer);
         free(dir_path);
         free_manifest(server_manifest);
@@ -554,7 +556,7 @@ int wtf_upgrade(char *project_name) {
   if (strlen(update_raw) == 0) {
     printf("Client is up to date.\n");
     memset(buffer, 0, 1000);
-    sprintf(buffer, "rm ./%s/.Update", project_name);
+    sprintf(buffer, "rm ./%s/.Update &> /dev/null", project_name);
     system(buffer);
     close(fd);
     free(buffer);
@@ -604,7 +606,7 @@ int wtf_upgrade(char *project_name) {
   }
   free(update_raw);
 
-  printf("upgrade_ops finished. total of %d\n", upgrade_op_count);
+  if (SHOULD_PRINT_STATEMENTS) printf("upgrade_ops finished. total of %d\n", upgrade_op_count);
   //go over all upgrade ops and fetch from the server the contents of the file if the OPCODE is M or A
 
   char *mid_buffer = malloc(20);
@@ -615,7 +617,7 @@ int wtf_upgrade(char *project_name) {
       //fetch file contents from server
       sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_GET_FILE_CONTENTS), COMMAND_GET_FILE_CONTENTS, strlen(upgrade_ops[i]->file_path), upgrade_ops[i]->file_path);
       int msg_size = strlen(buffer) + 1;
-      printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+      if (SHOULD_PRINT_STATEMENTS) printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
       write(connection->socket, &msg_size, sizeof(int));
       write(connection->socket, buffer, strlen(buffer) + 1);
       memset(buffer, 0, 1000);
@@ -627,12 +629,12 @@ int wtf_upgrade(char *project_name) {
           sprintf(mid_buffer, "%s%c", mid_buffer, buffer[0]);
           read(connection->socket, buffer, 1);
         }
-        printf("buffer is %s. mid_buffer is %s\n", buffer, mid_buffer);
+        if (SHOULD_PRINT_STATEMENTS) printf("buffer is %s. mid_buffer is %s\n", buffer, mid_buffer);
         int file_size = atoi(mid_buffer);
         upgrade_ops[i]->contents = malloc(file_size + 1);
         memset(upgrade_ops[i]->contents, 0, file_size + 1);
         read(connection->socket, upgrade_ops[i]->contents, file_size);
-        printf("Retrieved file contents for %s\n", upgrade_ops[i]->file_path);
+        if (SHOULD_PRINT_STATEMENTS) printf("Retrieved file contents for %s\n", upgrade_ops[i]->file_path);
       } else {
         //error happened when grabbing file from server
         for (j = 0; j < 1000; j++) {
@@ -651,7 +653,7 @@ int wtf_upgrade(char *project_name) {
       }
     }
 
-    printf("%c %s %s\n", upgrade_ops[i]->op_code, upgrade_ops[i]->file_path, upgrade_ops[i]->contents);
+    if (SHOULD_PRINT_STATEMENTS) printf("%c %s %s\n", upgrade_ops[i]->op_code, upgrade_ops[i]->file_path, upgrade_ops[i]->contents);
 
     //Apply the operation
     if (upgrade_ops[i]->op_code == OPCODE_ADD || upgrade_ops[i]->op_code == OPCODE_MODIFY) {
@@ -668,7 +670,7 @@ int wtf_upgrade(char *project_name) {
         k++;
       }
       strncpy(dir_paths, upgrade_ops[i]->file_path, slash_index + 1);
-      printf("\tdir subtree is %s\n", dir_paths);
+      if (SHOULD_PRINT_STATEMENTS) printf("\tdir subtree is %s\n", dir_paths);
 
       memset(buffer, 0, 1000);
       sprintf(buffer, "./%s", dir_paths);
@@ -685,7 +687,7 @@ int wtf_upgrade(char *project_name) {
 
       fd = open(upgrade_ops[i]->file_path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
       if (fd == -1) {
-        printf("couldn't open %s\n", upgrade_ops[i]->file_path);
+        if (SHOULD_PRINT_STATEMENTS) printf("couldn't open %s\n", upgrade_ops[i]->file_path);
         for (j = 0; j < 1000; j++) {
           if (upgrade_ops[j] != NULL) {
             free(upgrade_ops[j]->contents);
@@ -703,14 +705,14 @@ int wtf_upgrade(char *project_name) {
 
       write(fd, upgrade_ops[i]->contents, strlen(upgrade_ops[i]->contents));
       close(fd);
-      printf("wrote file to %s\n", upgrade_ops[i]->file_path);
+      if (SHOULD_PRINT_STATEMENTS) printf("wrote file to %s\n", upgrade_ops[i]->file_path);
     } else {
       //Delete operation
       // memset(buffer, 0, 1000);
       // sprintf(buffer, "rm %s &> /dev/null", upgrade_ops[i]->file_path);
       // system(buffer);
 
-      printf("delete operation\n");
+      if (SHOULD_PRINT_STATEMENTS) printf("delete operation\n");
       //sanitize project
       sanitize_project(project_name);
     }
@@ -729,7 +731,7 @@ int wtf_upgrade(char *project_name) {
   Manifest *server_manifest = fetch_server_manifest(project_name);
   write_manifest(server_manifest);
 
-  printf("Successfully performed operations listed in .Update\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Successfully performed operations listed in .Update\n");
 
   for (j = 0; j < 1000; j++) {
     if (upgrade_ops[j] != NULL) {
@@ -772,16 +774,16 @@ int wtf_update(char *project_name) {
     sprintf(buffer, "./%s/.Update", project_name);
     if (access(buffer, F_OK) != -1) {
       memset(buffer, 0, 1000);
-      sprintf(buffer, "rm ./%s/.Update", project_name);
+      sprintf(buffer, "rm ./%s/.Update &> /dev/null", project_name);
       system(buffer);
     }
-    sprintf(buffer, "touch ./%s/.Update", project_name);
+    sprintf(buffer, "touch ./%s/.Update &> /dev/null", project_name);
     system(buffer);
     memset(buffer, 0, 1000);
-    sprintf(buffer, "./%s/.Conflict", project_name);
+    sprintf(buffer, "./%s/.Conflict &>/dev/null", project_name);
     if (access(buffer, F_OK) != -1) {
       memset(buffer, 0, 1000);
-      sprintf(buffer, "rm ./%s/.Conflict", project_name);
+      sprintf(buffer, "rm ./%s/.Conflict &>/dev/null", project_name);
       system(buffer);
     }
     free(buffer);
@@ -902,7 +904,7 @@ int wtf_update(char *project_name) {
     sprintf(buffer, "./%s/.Update", project_name);
     if (access(buffer, F_OK) == 0) {
       memset(buffer, 0, 1000);
-      sprintf(buffer, "rm ./%s/.Update", project_name);
+      sprintf(buffer, "rm ./%s/.Update &> /dev/null", project_name);
       system(buffer);
     }
 
@@ -955,7 +957,7 @@ int wtf_update(char *project_name) {
 
   write(fd, update_buffer, strlen(update_buffer));
 
-  printf("Successfully wrote .Update\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Successfully wrote .Update\n");
   free(update_buffer);
   free(conflict_buffer);
   free(buffer);
@@ -986,7 +988,7 @@ int wtf_rollback(char *project_name, char *version_number) {
   memset(buffer, 0, 200);
   sprintf(buffer, "%d:%s:%d:%s:%d:%s", strlen(COMMAND_ROLLBACK_PROJECT), COMMAND_ROLLBACK_PROJECT, strlen(project_name), project_name, strlen(version_number), version_number);
   int msg_size = strlen(buffer) + 1;
-  printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+  if (SHOULD_PRINT_STATEMENTS) printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, buffer, strlen(buffer) + 1);
 
@@ -994,9 +996,9 @@ int wtf_rollback(char *project_name, char *version_number) {
   memset(buffer, 0, 200);
   read(connection->socket, buffer, 3);
   int ret_status = atoi(buffer);
-  printf("ret_status = %d\n", ret_status);
+  if (SHOULD_PRINT_STATEMENTS) printf("ret_status = %d\n", ret_status);
   if (ret_status == 1) {
-    printf("Successfully reverted project to version %d on the server.\n", atoi(version_number));
+    if (SHOULD_PRINT_STATEMENTS) printf("Successfully reverted project to version %d on the server.\n", atoi(version_number));
     free(buffer);
     close(connection->socket);
     free(connection);
@@ -1037,7 +1039,7 @@ int wtf_destroy(char *project_name) {
   memset(buffer, 0, 200);
   sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_DESTORY_PROJECT), COMMAND_DESTORY_PROJECT, strlen(project_name), project_name);
   int msg_size = strlen(buffer) + 1;
-  printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+  if (SHOULD_PRINT_STATEMENTS) printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, buffer, strlen(buffer) + 1);
 
@@ -1046,7 +1048,7 @@ int wtf_destroy(char *project_name) {
   read(connection->socket, buffer, 3);
   int ret_status = atoi(buffer);
   if (ret_status == 1) {
-    printf("Successfully destoryed the project '%s' on the server.\n", project_name);
+    if (SHOULD_PRINT_STATEMENTS) printf("Successfully destoryed the project '%s' on the server.\n", project_name);
     free(buffer);
     close(connection->socket);
     free(connection);
@@ -1088,7 +1090,7 @@ int wtf_history(char *project_name) {
   memset(ret_buffer, 0, 100000);
   sprintf(buffer, "%d:%s:%d:%s", strlen(COMMAND_GET_HISTORY), COMMAND_GET_HISTORY, strlen(project_name), project_name);
   int msg_size = strlen(buffer) + 1;
-  printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
+  if (SHOULD_PRINT_STATEMENTS) printf("Sending {%s} to the server (%d) bytes in total\n", buffer, msg_size);
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, buffer, strlen(buffer) + 1);
 
@@ -1178,7 +1180,7 @@ int wtf_push(char *project_name) {
     n = read(commit_fd, buffer, 1);
   }
   close(commit_fd);
-  printf("commit buffer loaded %s\n", commit_buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("commit buffer loaded %s\n", commit_buffer);
 
   //Go over all of the files that were A and M opcode's and add them to the file_buffer which we will compress later
   int i;
@@ -1200,7 +1202,7 @@ int wtf_push(char *project_name) {
         sprintf(buffer, "%s%c", buffer, commit_buffer[i]);
         i++;
       }
-      printf("we need to add file name: %s\n", buffer);
+      if (SHOULD_PRINT_STATEMENTS) printf("we need to add file name: %s\n", buffer);
       strcat(file_buffer, buffer);
       strcat(file_buffer, ":");
       fd = open(buffer, O_RDONLY);
@@ -1248,13 +1250,13 @@ int wtf_push(char *project_name) {
   memset(final_buffer, 0, 1000000);
   //command_length:command_name:project_length:project_name:commit_length:commit_string:file_buffer_length:file_buffer
   sprintf(final_buffer, "%d:%s:%d:%s:%d:%s:%d:%s", strlen(COMMAND_CREATE_PUSH), COMMAND_CREATE_PUSH, strlen(project_name), project_name, strlen(commit_buffer), commit_buffer, strlen(file_buffer), file_buffer);
-  printf("final buffer is %s\n", final_buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("final buffer is %s\n", final_buffer);
 
   //establish connection
   wtf_connection *connection = wtf_connect();
 
   //write buffer to server
-  printf("Sending %s (%d) bytes to the server\n", COMMAND_CREATE_PUSH, strlen(final_buffer));
+  if (SHOULD_PRINT_STATEMENTS) printf("Sending %s (%d) bytes to the server\n", COMMAND_CREATE_PUSH, strlen(final_buffer));
   int msg_size = strlen(final_buffer) + 1;
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, final_buffer, strlen(final_buffer));
@@ -1262,7 +1264,7 @@ int wtf_push(char *project_name) {
   n = read(connection->socket, buffer, 4);
   int ret_status = atoi(buffer);
   if (ret_status == 101) {
-    printf("Successfully pushed\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("Successfully pushed\n");
     client_manifest->version_number += 1;
     for (i = 0; i < client_manifest->file_count; i++) {
       client_manifest->files[i]->seen_by_server = 1;
@@ -1308,11 +1310,12 @@ int wtf_commit(char *project_name) {
   //First we need to fetch the server .Manifest and parse it
   Manifest *server_manifest = fetch_server_manifest(project_name);
   Manifest *client_manifest = fetch_client_manifest(project_name);
-  printf("\n");
-  print_manifest(server_manifest, SERVER, 1);
-  printf("\n");
-  print_manifest(client_manifest, CLIENT, 1);
-
+  if (SHOULD_PRINT_STATEMENTS) {
+    printf("\n");
+    print_manifest(server_manifest, SERVER, 1);
+    printf("\n");
+    print_manifest(client_manifest, CLIENT, 1);
+  }
   wtf_connection *connection = wtf_connect();
 
   //Most of the error checks are handled inside of fetch_server_manifest and fetch_client_manifest, which is why there aren't any checks above this line
@@ -1528,16 +1531,16 @@ int wtf_commit(char *project_name) {
   char *server_buffer = malloc(500200);
   memset(server_buffer, 0, 500200);
   sprintf(server_buffer, "%d:%s:%d:%s:%d:%s", strlen(COMMAND_CREATE_COMMIT), COMMAND_CREATE_COMMIT, strlen(project_name), project_name, strlen(commit_buffer), commit_buffer);
-  printf("Attempting to send (%d) bytes to the server\n", strlen(server_buffer));
+  if (SHOULD_PRINT_STATEMENTS) printf("Attempting to send (%d) bytes to the server\n", strlen(server_buffer));
   int msg_size = strlen(server_buffer) + 1;
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, server_buffer, strlen(server_buffer));
   memset(buffer, 0, 1000);
   n = read(connection->socket, buffer, 4);
-  printf("return buffer is %s\n", buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("return buffer is %s\n", buffer);
   int ret_status = atoi(buffer);
   if (ret_status == 101) {
-    printf("Successfully sent .Commit to the Server\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("Successfully sent .Commit to the Server\n");
   } else {
     //error checks handling here
     free(buffer);
@@ -1580,7 +1583,7 @@ int wtf_remove(char *project_name, char *file_path) {
   int i;
   int index = -1;  //index where file is in client_manifest->files
   for (i = 0; i < client_manifest->file_count; i++) {
-    printf("comparing %s and %s\n", client_manifest->files[i]->file_path, file);
+    if (SHOULD_PRINT_STATEMENTS) printf("comparing %s and %s\n", client_manifest->files[i]->file_path, file);
     if (strcmp(client_manifest->files[i]->file_path, file) == 0)
       index = i;
   }
@@ -1671,7 +1674,7 @@ Manifest *fetch_server_manifest(char *project_name) {
   char *ret_string = malloc(500000);
   sprintf(buffer, "19:get_current_version:%d:%s", strlen(project_name) + 1, project_name);
   int msg_size = strlen(buffer) + 1;
-  printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
+  if (SHOULD_PRINT_STATEMENTS) printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, buffer, strlen(buffer) + 1);
 
@@ -1869,7 +1872,7 @@ Manifest *fetch_client_manifest(char *project_name) {
       sprintf(builder, "%s%c", builder, buffer[0]);
       read(manifest_fd, buffer, 1);
     }
-    printf("\tFile path: %s\n", builder);
+    if (SHOULD_PRINT_STATEMENTS) printf("\tFile path: %s\n", builder);
     client_manifest->files[j]->file_path = malloc(strlen(builder) + 1);
     memset(client_manifest->files[j]->file_path, 0, strlen(builder));
     strncpy(client_manifest->files[j]->file_path, builder, strlen(builder));
@@ -2008,14 +2011,14 @@ int wtf_add(char *project_name, char *file_name) {
       }
       temp_name_buffer[j + 1] = '\0';
 
-      printf("temp_name extracted = '%s'\n", temp_name_buffer);
+      if (SHOULD_PRINT_STATEMENTS) printf("temp_name extracted = '%s'\n", temp_name_buffer);
       if (strcmp(temp_name_buffer, file) == 0) {
         wtf_perror(E_FILE_ALREADY_ADDED_TO_MANIFEST, FATAL_ERROR);
       }
     }
   }
 
-  printf("here, lets add the new file to the manifest\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("here, lets add the new file to the manifest\n");
 
   //If we have made it here, then we can safely add the new entry to the end of the manifest
 
@@ -2089,13 +2092,13 @@ int wtf_create_project(char *project_name) {
 
   sprintf(buffer, "14:create_project:%d:%s", strlen(project_name) + 1, project_name);
   int msg_size = strlen(buffer) + 1;
-  printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
+  if (SHOULD_PRINT_STATEMENTS) printf("Sending {%s} to the server (%d) bytes total\n", buffer, msg_size);
   write(connection->socket, &msg_size, sizeof(int));
   write(connection->socket, buffer, strlen(buffer) + 1);
   int n = read(connection->socket, buffer, 4);
   int ret_status = atoi(buffer);
   if (ret_status == 101) {
-    printf("Successfully created Project Manifest on server.\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("Successfully created Project Manifest on server.\n");
 
     //Now we need to create the project on the client side (including .Manifest);
     mkdir(project_name, 0700);
@@ -2121,7 +2124,7 @@ int wtf_create_project(char *project_name) {
     close(fd);
     free(connection);
     free(buffer);
-    printf("Successfully created Project Manifest on Client\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("Successfully created Project Manifest on Client\n");
     return 1;
   } else {
     if (ret_status == 105) {
@@ -2181,10 +2184,10 @@ wtf_connection *wtf_connect() {
     free(buffer);
     free(hostname_buffer);
 
-    printf("Configuration loaded into global: {hostname: '%s', port: %d}\n", CONFIGURATION->hostname, CONFIGURATION->port);
+    if (SHOULD_PRINT_STATEMENTS) printf("Configuration loaded into global: {hostname: '%s', port: %d}\n", CONFIGURATION->hostname, CONFIGURATION->port);
   }
 
-  printf("Attempting to connect to %s:%d\n", CONFIGURATION->hostname, CONFIGURATION->port);
+  if (SHOULD_PRINT_STATEMENTS) printf("Attempting to connect to %s:%d\n", CONFIGURATION->hostname, CONFIGURATION->port);
 
   wtf_connection *connection = malloc(sizeof(wtf_connection));
   connection->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -2318,9 +2321,9 @@ void print_manifest(Manifest *m, int client_or_server, int verbose) {
 void sanitize_project(char *project) {
   char *buffer = malloc(1000);
   memset(buffer, 0, 1000);
-  sprintf(buffer, "cd ./%s/ && find . -type d -empty -delete", project);
-  // system(buffer);
-  printf("Sanitized project\n");
+  sprintf(buffer, "cd ./%s/ && find . -type d -empty -delete &> /dev/null", project);
+  system(buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("Sanitized project\n");
   free(buffer);
 }
 

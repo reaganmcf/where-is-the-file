@@ -14,6 +14,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define SHOULD_PRINT_STATEMENTS 0
+
 /**
  * WTF Server
  * 
@@ -91,12 +93,12 @@ int main(int argc, char **argv) {
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
-  printf("Server has started up Successfully. Listening for Connections...\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Server has started up Successfully. Listening for Connections...\n");
 
-  printf("all repo locks:\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("all repo locks:\n");
   RepositoryLock *curr = HEAD_REPOSITORY_LOCK;
   while (curr != NULL) {
-    printf("\t%s %p\n", curr->project_name, &curr->lock);
+    if (SHOULD_PRINT_STATEMENTS) printf("\t%s %p\n", curr->project_name, &curr->lock);
     curr = curr->next;
   }
 
@@ -120,6 +122,7 @@ int main(int argc, char **argv) {
  * sigint handler, will call wtf_server_exit_handler
  */
 void sigintHandler(int signum) {
+  printf("sigint caught\n");
   wtf_server_exit_handler();
 }
 
@@ -130,7 +133,7 @@ void sigintHandler(int signum) {
  * 
  */
 static void wtf_server_exit_handler(void) {
-  printf("Handling exit safely. Freeing alloc'd memory...\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Handling exit safely. Freeing alloc'd memory...\n");
   close(SOCKET_FD);
 
   //destroy and free locks
@@ -144,7 +147,7 @@ static void wtf_server_exit_handler(void) {
     curr = next;
   }
 
-  printf("Successfully handled exit.\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Successfully handled exit.\n");
   _exit(0);
 }
 
@@ -167,7 +170,7 @@ void *wtf_process(void *pointer) {
     memset(buffer, 0, len + 1);
     buffer[len] = 0;
     read(connection->socket, buffer, len);
-    printf("%d.%d.%d.%d: %s\n", (addr)&0xFF, (addr >> 8) & 0xFF, (addr >> 16) & 0xFF, (addr >> 24) & 0xFF, buffer);
+    if (SHOULD_PRINT_STATEMENTS) printf("%d.%d.%d.%d: %s\n", (addr)&0xFF, (addr >> 8) & 0xFF, (addr >> 16) & 0xFF, (addr >> 24) & 0xFF, buffer);
   }
   if (len == 0) pthread_exit(0);
 
@@ -180,7 +183,7 @@ void *wtf_process(void *pointer) {
   char *command = malloc(command_size + 1);
   memset(command, 0, command_size + 1);
   command = strncpy(command, buffer, command_size);
-  printf("\tcommand = %s\n", command);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tcommand = %s\n", command);
   //advance buffer to char after next ':'
   while (buffer[0] != ':')
     buffer++;
@@ -200,7 +203,7 @@ void *wtf_process(void *pointer) {
     int status = wtf_server_create_project(project_name);
     char *ret_buffer = malloc(4);
     sprintf(ret_buffer, "%d", (status + 1) + 100);
-    printf("\tSending back {%s} to the client\n", ret_buffer);
+    if (SHOULD_PRINT_STATEMENTS) printf("\tSending back {%s} to the client\n", ret_buffer);
     write(connection->socket, ret_buffer, 4);
     free(project_name);
   } else if (strcmp(command, COMMAND_CURRENT_VERSION_PROJECT) == 0) {
@@ -236,8 +239,10 @@ void *wtf_process(void *pointer) {
     int commit_buffer_size = atoi(buffer);
     while (buffer[0] != ':') buffer++;
     buffer++;
-    printf("commit_buffer_size is %d\n", commit_buffer_size);
-    printf("buffer is %s\n", buffer);
+    if (SHOULD_PRINT_STATEMENTS) {
+      printf("commit_buffer_size is %d\n", commit_buffer_size);
+      printf("buffer is %s\n", buffer);
+    }
     char *commit_buffer = malloc(commit_buffer_size + 1);
     memset(commit_buffer, 0, commit_buffer_size + 1);
     strncpy(commit_buffer, buffer, commit_buffer_size);
@@ -273,11 +278,11 @@ void *wtf_process(void *pointer) {
     char *file_buffer = malloc(file_buffer_length + 1);
     memset(file_buffer, 0, file_buffer_length + 1);
     strncpy(file_buffer, buffer, file_buffer_length);
-
-    printf("\tProject_name = %s\n", project_name);
-    printf("\tCommit buffer = %s\n", commit_buffer);
-    printf("\tFile buffer = %s\n", file_buffer);
-
+    if (SHOULD_PRINT_STATEMENTS) {
+      printf("\tProject_name = %s\n", project_name);
+      printf("\tCommit buffer = %s\n", commit_buffer);
+      printf("\tFile buffer = %s\n", file_buffer);
+    }
     char *ret = wtf_server_push(project_name, commit_buffer, file_buffer);
     write(connection->socket, ret, 3);
 
@@ -310,7 +315,7 @@ void *wtf_process(void *pointer) {
     char *ret_buffer = malloc(3);
     memset(ret_buffer, 0, 3);
     sprintf(ret_buffer, "%d", status);
-    printf("\tSending back {%s} to the client\n", ret_buffer);
+    if (SHOULD_PRINT_STATEMENTS) printf("\tSending back {%s} to the client\n", ret_buffer);
     write(connection->socket, ret_buffer, 3);
     free(project_name);
     free(ret_buffer);
@@ -332,7 +337,7 @@ void *wtf_process(void *pointer) {
     strncpy(version_number_string, buffer, version_number_size);
     int version_number = atoi(version_number_string);
 
-    printf("\trollback %s %d\n", project_name, version_number);
+    if (SHOULD_PRINT_STATEMENTS) printf("\trollback %s %d\n", project_name, version_number);
     int status = wtf_server_rollback_project(project_name, version_number);
     char *ret_buffer = malloc(3);
     memset(ret_buffer, 0, 3);
@@ -350,7 +355,7 @@ void *wtf_process(void *pointer) {
     memset(file_path, 0, file_path_size + 1);
     strncpy(file_path, buffer, file_path_size);
     char *ret = wtf_server_get_file_contents(file_path);
-    printf("\tSending back {%s} to the client\n", ret);
+    if (SHOULD_PRINT_STATEMENTS) printf("\tSending back {%s} to the client\n", ret);
     write(connection->socket, ret, strlen(ret));
     free(file_path);
     free(ret);
@@ -361,7 +366,7 @@ void *wtf_process(void *pointer) {
   free(connection);
   free(command);
   len = 0;
-  printf("\tFinished\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\tFinished\n");
   pthread_exit(0);
 }
 
@@ -394,7 +399,7 @@ char *wtf_server_get_file_contents(char *file_path) {
     sprintf(proj_name, "%s%c", proj_name, file_path[i]);
   }
 
-  printf("project name is %s", proj_name);
+  if (SHOULD_PRINT_STATEMENTS) printf("project name is %s", proj_name);
   lock_repository(proj_name);
 
   sprintf(buffer, "./Projects/%s", file_path);
@@ -436,7 +441,7 @@ char *wtf_server_get_file_contents(char *file_path) {
   //file is fully read, build buffer
   memset(ret_buffer, 0, 500000);
   sprintf(ret_buffer, "1:%d:%s", strlen(file_buffer), file_buffer);
-  printf("\tSuccessfully read %d bytes from %s\n", strlen(file_buffer), file_path);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tSuccessfully read %d bytes from %s\n", strlen(file_buffer), file_path);
   free(buffer);
   free(file_buffer);
   unlock_repository(proj_name);
@@ -501,52 +506,52 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
   //move history out of the dir
   char *buffer = malloc(200);
   memset(buffer, 0, 200);
-  sprintf(buffer, "mv ./Projects/%s/.History ./Projects", project_name);
+  sprintf(buffer, "mv ./Projects/%s/.History ./Projects &> /dev/null", project_name);
   system(buffer);
 
   //move the backup out of the dir
   memset(buffer, 0, 200);
-  sprintf(buffer, "mv ./Projects/%s/%s_%d.gz ./Projects/", project_name, project_name, version_number);
+  sprintf(buffer, "mv ./Projects/%s/%s_%d.gz ./Projects/ &> /dev/null", project_name, project_name, version_number);
   system(buffer);
 
   //delete all files inside the project folder
   memset(buffer, 0, 200);
-  sprintf(buffer, "rm -r ./Projects/%s", project_name);
+  sprintf(buffer, "rm -r ./Projects/%s &> /dev/null", project_name);
   system(buffer);
 
   //create the project folder again
   memset(buffer, 0, 200);
-  sprintf(buffer, "mkdir ./Projects/%s", project_name);
+  sprintf(buffer, "mkdir ./Projects/%s &> /dev/null", project_name);
   system(buffer);
 
   //move back the backup
   memset(buffer, 0, 200);
-  sprintf(buffer, "mv ./Projects/%s_%d.gz ./Projects/%s/", project_name, version_number, project_name);
+  sprintf(buffer, "mv ./Projects/%s_%d.gz ./Projects/%s/ &> /dev/null", project_name, version_number, project_name);
   system(buffer);
 
   //untar the backup
   memset(buffer, 0, 200);
-  sprintf(buffer, "tar -xf ./Projects/%s/%s_%d.gz -C ./Projects/", project_name, project_name, version_number, project_name);
+  sprintf(buffer, "tar -xf ./Projects/%s/%s_%d.gz -C ./Projects/ &> /dev/null", project_name, project_name, version_number, project_name);
   system(buffer);
 
   //move files in untar to current dir
   memset(buffer, 0, 200);
-  sprintf(buffer, "cp -rf ./Projects/Projects/%s_%d/. ./Projects/%s/", project_name, version_number, project_name);
+  sprintf(buffer, "cp -rf ./Projects/Projects/%s_%d/. ./Projects/%s/ &> /dev/null", project_name, version_number, project_name);
   system(buffer);
 
   //delete untar dirs
   memset(buffer, 0, 200);
-  sprintf(buffer, "rm -r ./Projects/Projects/", buffer);
+  sprintf(buffer, "rm -r ./Projects/Projects/ &> /dev/null", buffer);
   system(buffer);
 
   //move .History back
   memset(buffer, 0, 200);
-  sprintf(buffer, "mv ./Projects/.History ./Projects/%s/.History", project_name);
+  sprintf(buffer, "mv ./Projects/.History ./Projects/%s/.History &> /dev/null", project_name);
   system(buffer);
 
   //delete backup
   memset(buffer, 0, 200);
-  sprintf(buffer, "rm ./Projects/%s/%s_%d.gz", project_name, project_name, version_number);
+  sprintf(buffer, "rm ./Projects/%s/%s_%d.gz &> /dev/null", project_name, project_name, version_number);
   system(buffer);
 
   //write to history
@@ -554,16 +559,16 @@ int wtf_server_rollback_project(char *project_name, int version_number) {
   sprintf(buffer, "./Projects/%s/.History", project_name);
   int fd = open(buffer, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR);
   if (fd == -1) {
-    printf("\tcannot create or open .History for some reason\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("\tcannot create or open .History for some reason\n");
   } else {
     memset(buffer, 0, 200);
     sprintf(buffer, "Rolled back to version %d\n", version_number);
-    printf("Writing out to .History %s\n", buffer);
+    if (SHOULD_PRINT_STATEMENTS) printf("Writing out to .History %s\n", buffer);
     write(fd, buffer, strlen(buffer));
   }
   close(fd);
 
-  printf("Successfully rolled back project\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Successfully rolled back project\n");
   free(buffer);
   unlock_repository(project_name);
   free_manifest(manifest);
@@ -685,7 +690,7 @@ char *wtf_server_get_history(char *project_name) {
     return ret;
   }
 
-  printf("\tattemtping to read %s\n", buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tattemtping to read %s\n", buffer);
   int fd = open(buffer, O_RDWR);
 
   if (fd == -1) {
@@ -727,11 +732,11 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   memset(target_commit_file_name, 0, 500);
   sprintf(target_commit_file_name, ".Commit_%s", hash_string(commit_contents));
   sprintf(buffer, "./Projects/%s/%s", project_name, target_commit_file_name);
-  printf("\tChecking if commit doesn't exist\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\tChecking if commit doesn't exist\n");
 
-  printf("\tServer should have %s\n", target_commit_file_name);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tServer should have %s\n", target_commit_file_name);
   if (access(buffer, F_OK) == -1) {
-    printf("\tCommit doesn't exist, can't push\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("\tCommit doesn't exist, can't push\n");
     sprintf(buff, "101");
     return buff;
   }
@@ -766,7 +771,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   }
 
   Manifest *manifest = fetch_manifest(project_name);
-  print_manifest(manifest, 0);
+  if (SHOULD_PRINT_STATEMENTS) print_manifest(manifest, 0);
   int version_number = manifest->version_number;
 
   lock_repository(project_name);
@@ -774,32 +779,32 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   //delete current commit now that commit ops are made
   memset(buffer, 0, 1000);
   sprintf(buffer, "rm ./Projects/%s/%s", project_name, target_commit_file_name);
-  printf("%s\n", buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("%s\n", buffer);
   system(buffer);
 
   //Now that all other commits are expired, lets duplicate the repo and append the version number to it so we can still access it later in rollback
 
   //Duplicate repo
-  sprintf(buffer, "cp -R ./Projects/%s/ ./Projects/%s_%d", project_name, project_name, version_number);
-  printf("%s\n", buffer);
+  sprintf(buffer, "cp -R ./Projects/%s/ ./Projects/%s_%d &> /dev/null", project_name, project_name, version_number);
+  if (SHOULD_PRINT_STATEMENTS) printf("%s\n", buffer);
   system(buffer);
 
   //Tar copy
   memset(buffer, 0, 1000);
-  sprintf(buffer, "tar -cf ./Projects/%s_%d.gz ./Projects/%s_%d", project_name, version_number, project_name, version_number);
-  printf("%s\n", buffer);
+  sprintf(buffer, "tar -cf ./Projects/%s_%d.gz ./Projects/%s_%d &> /dev/null", project_name, version_number, project_name, version_number);
+  if (SHOULD_PRINT_STATEMENTS) printf("%s\n", buffer);
   system(buffer);
 
   //Remove copy
   memset(buffer, 0, 1000);
-  sprintf(buffer, "rm -r ./Projects/%s_%d", project_name, version_number);
-  printf("%s\n", buffer);
+  sprintf(buffer, "rm -r ./Projects/%s_%d &> /dev/null", project_name, version_number);
+  if (SHOULD_PRINT_STATEMENTS) printf("%s\n", buffer);
   system(buffer);
 
   //Move tar back into project dir
   memset(buffer, 0, 1000);
-  sprintf(buffer, "mv ./Projects/%s_%d.gz ./Projects/%s/", project_name, version_number, project_name, project_name);
-  printf("%s\n", buffer);
+  sprintf(buffer, "mv ./Projects/%s_%d.gz ./Projects/%s/ &> /dev/null", project_name, version_number, project_name, project_name);
+  if (SHOULD_PRINT_STATEMENTS) printf("%s\n", buffer);
   system(buffer);
 
   //Now that copy is made, read over commit message and construct message out of it
@@ -857,7 +862,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     commit_copy++;
   }
 
-  printf("\tall commit ops made\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\tall commit ops made\n");
 
   memset(buffer, 0, 1000);
   sprintf(buffer, "./Projects/%s/.History", project_name);
@@ -872,27 +877,27 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   new_manifest->project_name = malloc(strlen(manifest->project_name) + 1);
   strcpy(new_manifest->project_name, manifest->project_name);
   new_manifest->file_count = non_delete_commit_op_count + manifest->file_count;
-  printf("size of newman file count is %d\n", new_manifest->file_count);
+  if (SHOULD_PRINT_STATEMENTS) printf("size of newman file count is %d\n", new_manifest->file_count);
   new_manifest->files = malloc(sizeof(ManifestFileEntry *) * (non_delete_commit_op_count + manifest->file_count));
 
   int new_man_idx = 0;
   //CommitOperations built here and ready to be applied
   int fd;
   for (i = 0; i < commit_op_count; i++) {
-    printf("%c %s %s\n", commit_ops[i]->op_code, commit_ops[i]->file_path, commit_ops[i]->contents);
+    if (SHOULD_PRINT_STATEMENTS) printf("%c %s %s\n", commit_ops[i]->op_code, commit_ops[i]->file_path, commit_ops[i]->contents);
     memset(buffer, 0, 1000);
     sprintf(buffer, "%c %s\n", commit_ops[i]->op_code, commit_ops[i]->file_path);
     write(history_fd, buffer, strlen(buffer));
     memset(buffer, 0, 1000);
     sprintf(buffer, "./Projects/%s", commit_ops[i]->file_path);
     if (commit_ops[i]->op_code == OPCODE_ADD || commit_ops[i]->op_code == OPCODE_MODIFY) {
-      printf("\tadding/modifying\n");
+      if (SHOULD_PRINT_STATEMENTS) printf("\tadding/modifying\n");
       new_manifest->files[new_man_idx] = malloc(sizeof(ManifestFileEntry));
       new_manifest->files[new_man_idx]->file_path = malloc(strlen(commit_ops[i]->file_path) + 1);
       strcpy(new_manifest->files[new_man_idx]->file_path, commit_ops[i]->file_path);
       new_manifest->files[new_man_idx]->hash = malloc(SHA_DIGEST_LENGTH * 2 + 1);
       memset(new_manifest->files[i]->hash, 0, SHA_DIGEST_LENGTH * 2 + 1);
-      printf("going to be hasing %s\n", commit_ops[i]->contents);
+      if (SHOULD_PRINT_STATEMENTS) printf("going to be hasing %s\n", commit_ops[i]->contents);
       new_manifest->files[new_man_idx]->hash = hash_string(commit_ops[i]->contents);
       new_manifest->files[new_man_idx]->op_code = OPCODE_NONE;
       new_manifest->files[new_man_idx]->seen_by_server = 1;
@@ -914,19 +919,19 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
         k++;
       }
       strncpy(dir_paths, commit_ops[i]->file_path, slash_index + 1);
-      printf("\tdir subtree is %s\n", dir_paths);
+      if (SHOULD_PRINT_STATEMENTS) printf("\tdir subtree is %s\n", dir_paths);
 
       memset(mid_buffer, 0, 1000);
-      sprintf(mid_buffer, "mkdir -p ./Projects/%s", dir_paths);
+      sprintf(mid_buffer, "mkdir -p ./Projects/%s &> /dev/null", dir_paths);
       system(mid_buffer);
       free(dir_paths);
       memset(mid_buffer, 0, 1000);
-      sprintf(mid_buffer, 0, "touch %s", commit_ops[i]->file_path);
+      sprintf(mid_buffer, 0, "touch %s &> /dev/null", commit_ops[i]->file_path);
       system(mid_buffer);
 
       fd = open(buffer, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
       if (fd == -1) {
-        printf("couldn't create file %s\n", commit_ops[i]->file_path);
+        if (SHOULD_PRINT_STATEMENTS) printf("couldn't create file %s\n", commit_ops[i]->file_path);
       }
       write(fd, commit_ops[i]->contents, strlen(commit_ops[i]->contents));
       close(fd);
@@ -935,7 +940,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
     } else {
       //has to be delete
       memset(buffer, 0, 1000);
-      sprintf(buffer, "rm %s", commit_ops[i]->file_path);
+      sprintf(buffer, "rm %s &> /dev/null", commit_ops[i]->file_path);
       system(buffer);
 
       //sanitize project
@@ -968,7 +973,7 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
 
   close(history_fd);
 
-  print_manifest(new_manifest, 0);
+  if (SHOULD_PRINT_STATEMENTS) print_manifest(new_manifest, 0);
 
   //write new manifest
   write_manifest(new_manifest);
@@ -998,12 +1003,12 @@ char *wtf_server_write_commit(char *project_name, char *commit) {
   char *buff = malloc(4);
   memset(buff, 0, 4);
   memset(buffer, 0, 1000);
-  printf("\tcommit is %s\n", commit);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tcommit is %s\n", commit);
   sprintf(buffer, "./Projects/%s/.Commit_%s", project_name, hash_string(commit));
-  printf("\tAttemtping to write %s\n", buffer);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tAttemtping to write %s\n", buffer);
 
   if (access(buffer, F_OK) != -1) {
-    printf("\tFile already exists. No need to write again\n");
+    if (SHOULD_PRINT_STATEMENTS) printf("\tFile already exists. No need to write again\n");
     sprintf(buff, "101");
     return buff;
   }
@@ -1023,7 +1028,7 @@ char *wtf_server_write_commit(char *project_name, char *commit) {
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_NEW_COMMIT);
     return buff;
   }
-  printf("\tSuccessfully created new .Commit\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\tSuccessfully created new .Commit\n");
 
   free(buffer);
   close(fd);
@@ -1089,9 +1094,9 @@ int wtf_server_create_project(char *project_name) {
   //write version number 1
   char *init_data = malloc(150);
   sprintf(init_data, "%s\n1", project_name);
-  printf("\t attemtping the write\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\t attemtping the write\n");
   int num_bytes = write(fd, init_data, strlen(init_data));
-  printf("\t write finished \n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\t write finished \n");
   if (num_bytes <= 0) {
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     free(path);
@@ -1101,7 +1106,7 @@ int wtf_server_create_project(char *project_name) {
     return E_CANNOT_READ_OR_WRITE_PROJECT_DIR;
   }
 
-  printf("\tSuccessfully created .Manifest file for %s\n", project_name);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tSuccessfully created .Manifest file for %s\n", project_name);
   free(path);
   close(fd);
 
@@ -1208,12 +1213,13 @@ char *wtf_server_get_current_version(char *project_name) {
       file_count++;
     }
   }
-  if (file_count == 0) printf("NO FILES\n");
+  if (SHOULD_PRINT_STATEMENTS)
+    if (file_count == 0) printf("NO FILES\n");
   char *final_ret_string = malloc(500000);
   memset(final_ret_string, 0, 500000);
   sprintf(final_ret_string, "1:%d:%d:%s", project_version, file_count, ret_string);  //Add 1 to front as we check for success code
-  printf("\tSuccessfully built return string\n");
-  printf("\tReturn string is: %s\n", final_ret_string);
+  if (SHOULD_PRINT_STATEMENTS) printf("\tSuccessfully built return string\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\tReturn string is: %s\n", final_ret_string);
 
   free(t_number);
   free(temp_hash);
@@ -1416,24 +1422,24 @@ Manifest *fetch_manifest(char *project_name) {
  * Prints manifest as readable string
  */
 void print_manifest(Manifest *m, int verbose) {
-  printf("[ MANIFEST]\n");
-  printf("Project: %s\n", m->project_name);
-  printf("Version: %d\n", m->version_number);
-  printf("%d Total Files:\n", m->file_count);
+  if (SHOULD_PRINT_STATEMENTS) printf("[ MANIFEST]\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Project: %s\n", m->project_name);
+  if (SHOULD_PRINT_STATEMENTS) printf("Version: %d\n", m->version_number);
+  if (SHOULD_PRINT_STATEMENTS) printf("%d Total Files:\n", m->file_count);
   int i;
   for (i = 0; i < m->file_count; i++) {
     if (m->files[i] == NULL) continue;
     if (!verbose) {
-      printf("\t%s Version: %d\n", m->files[i]->file_path, m->files[i]->version_number);
+      if (SHOULD_PRINT_STATEMENTS) printf("\t%s Version: %d\n", m->files[i]->file_path, m->files[i]->version_number);
     } else {
-      printf("\t%s Version: %d; Hash: %s\n", m->files[i]->file_path, m->files[i]->version_number, m->files[i]->hash);
+      if (SHOULD_PRINT_STATEMENTS) printf("\t%s Version: %d; Hash: %s\n", m->files[i]->file_path, m->files[i]->version_number, m->files[i]->hash);
     }
   }
   for (i = 0; i < m->new_file_count; i++) {
     if (!verbose) {
-      printf("\t%s Version: %d\n", m->new_files[i]->file_path, m->new_files[i]->version_number);
+      if (SHOULD_PRINT_STATEMENTS) printf("\t%s Version: %d\n", m->new_files[i]->file_path, m->new_files[i]->version_number);
     } else {
-      printf("\t%s Version: %d; Hash: %s\n", m->new_files[i]->file_path, m->new_files[i]->version_number, m->files[i]->hash);
+      if (SHOULD_PRINT_STATEMENTS) printf("\t%s Version: %d; Hash: %s\n", m->new_files[i]->file_path, m->new_files[i]->version_number, m->files[i]->hash);
     }
   }
 }
@@ -1448,7 +1454,7 @@ void lock_repository(char *project_name) {
   while (curr != NULL) {
     if (strcmp(curr->project_name, project_name) == 0) {
       pthread_mutex_lock(&(curr->lock));
-      printf("LOCKED %s\n", project_name);
+      if (SHOULD_PRINT_STATEMENTS) printf("LOCKED %s\n", project_name);
       return;
     }
     curr = curr->next;
@@ -1465,7 +1471,7 @@ void unlock_repository(char *project_name) {
   while (curr != NULL) {
     if (strcmp(curr->project_name, project_name) == 0) {
       pthread_mutex_unlock(&(curr->lock));
-      printf("UNLOCKED %s\n", project_name);
+      if (SHOULD_PRINT_STATEMENTS) printf("UNLOCKED %s\n", project_name);
       return;
     }
     curr = curr->next;
@@ -1541,8 +1547,8 @@ int write_manifest(Manifest *manifest) {
   int i;
   for (i = 0; i < manifest->file_count; i++) {
     if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
-    //Construct entry string
-    printf("writing %s\n", manifest->files[i]->file_path);
+                                                               //Construct entry string
+    if (SHOULD_PRINT_STATEMENTS) printf("writing %s\n", manifest->files[i]->file_path);
     memset(buffer, 0, 500);
     sprintf(buffer, "\n~ ");
     if (manifest->files[i]->op_code != OPCODE_NONE) {
@@ -1567,12 +1573,12 @@ int write_manifest(Manifest *manifest) {
  * Go through all directories and delete them if they don't contain any files
  */
 void sanitize_project(char *project) {
-  printf("\tSanitizing project\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("\tSanitizing project\n");
   char *buffer = malloc(1000);
   memset(buffer, 0, 1000);
-  sprintf(buffer, "cd ./%s/ && find . -type d -empty print");
+  sprintf(buffer, "cd ./%s/ && find . -type d -empty print &> /dev/null");
   system(buffer);
-  printf("Sanitized project\n");
+  if (SHOULD_PRINT_STATEMENTS) printf("Sanitized project\n");
   free(buffer);
 }
 

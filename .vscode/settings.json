@@ -2,6 +2,7 @@
     "files.associations": {
         "bitset": "c",
         "vector": "c",
-        "typeindex": "c"
+        "typeindex": "c",
+        "random": "c"
     }
 }
