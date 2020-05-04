@@ -1,0 +1,2 @@
+WTFserver 206509 rpm141    3u  IPv4 761539386      0t0  TCP *:ndmp (LISTEN)
+WTFserver 206509 rpm141    5u  IPv4 761487128      0t0  TCP localhost:ndmp->localhost:47734 (CLOSE_WAIT)

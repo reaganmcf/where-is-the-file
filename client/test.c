@@ -7,13 +7,14 @@
 
 int main(int argc, char** argv) {
   int lower = 2000, upper = 10000;
-  int PORT_NUMBER = 5030;
+  int PORT_NUMBER = 10000;
 
   char* buffer = malloc(500);
 
   //find an open port
-  int n = 1;
+  int n = 0;
   while (n >= 1) {
+    PORT_NUMBER = (rand() % (upper - lower + 1)) + lower;
     memset(buffer, 0, 500);
     sprintf(buffer, "grep -w %d /etc/services > .tempresult", PORT_NUMBER);
     system(buffer);
@@ -26,14 +27,15 @@ int main(int argc, char** argv) {
       free(buffer);
       return 0;
     }
-    close(fd);
 
-    n = read(fd, buffer, 20);
+    n = read(fd, buffer, 1);
     printf("read %d bytes from .tempresult\n", n);
 
-    // remove(".tempresult");
-    printf("random port already taken... trying another port in 3 seconds\n");
-    sleep(3);
+    remove(".tempresult");
+    // printf("random port already taken... trying another port in 3 seconds\n");
+    // printf("%d written \n", n);
+
+    close(fd);
   }
 
   memset(buffer, 0, 500);
@@ -53,7 +55,7 @@ int main(int argc, char** argv) {
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "./WTF destroy project");
+  sprintf(buffer, "./WTF destroy project &> /dev/null");
   system(buffer);
 
   memset(buffer, 0, 500);
@@ -61,7 +63,7 @@ int main(int argc, char** argv) {
   system(buffer);
 
   memset(buffer, 0, 500);
-  sprintf(buffer, "mkdir ./project/folder && touch ./project/folder/file1 && echo some text > ./project/folder/file1");
+  sprintf(buffer, "mkdir ./project/folder &> /dev/null && touch ./project/folder/file1 &> /dev/null && echo some text > ./project/folder/file1");
   system(buffer);
 
   memset(buffer, 0, 500);
@@ -136,14 +138,27 @@ int main(int argc, char** argv) {
   sprintf(buffer, "./WTF history project");
   system(buffer);
 
-  //find the pid of the server process
   memset(buffer, 0, 500);
-  sprintf(buffer, "lsof -i :%d | awk '{system(\"kill -SIGINT \" $2)}' &> /dev/null", PORT_NUMBER);
+  sprintf(buffer, "lsof -i | grep WTFserver > .tempresult");
+  system(buffer);
+
+  memset(buffer, 0, 500);
+  int fd = open(".tempresult", O_RDONLY);
+  read(fd, buffer, 50);
+  char* pid = malloc(50);
+  memset(pid, 0, 50);
+  int i = 0;
+  while (buffer[i + 10] != ' ') {
+    sprintf(pid, "%s%c", pid, buffer[i + 10]);
+    i++;
+  }
+  //find the pid of the server process
+  sprintf(buffer, "kill -2 %s", pid);
   system(buffer);
 
   printf("Killed server. All done testing!\n");
 
   free(buffer);
-
+  free(pid);
   return 0;
 }
