@@ -561,6 +561,7 @@ int wtf_upgrade(char *project_name) {
     close(connection->socket);
     free(connection);
     free(update_raw);
+    return 1;
   }
   close(fd);
 
@@ -702,15 +703,22 @@ int wtf_upgrade(char *project_name) {
 
       write(fd, upgrade_ops[i]->contents, strlen(upgrade_ops[i]->contents));
       close(fd);
+      printf("wrote file to %s\n", upgrade_ops[i]->file_path);
     } else {
       //Delete operation
       // memset(buffer, 0, 1000);
       // sprintf(buffer, "rm %s &> /dev/null", upgrade_ops[i]->file_path);
       // system(buffer);
 
+      printf("delete operation\n");
       //sanitize project
       sanitize_project(project_name);
     }
+
+    //after each call to the server, the connection is ended so we have to free the struct and create new connection
+    close(connection->socket);
+    free(connection);
+    connection = wtf_connect();
   }
 
   //Delete .Update

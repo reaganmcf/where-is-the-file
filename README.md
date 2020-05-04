@@ -1,5 +1,8 @@
 # AsstLast
 
+- Note:
+
+When we store old versions of the project, we compress them as `.gz` using the `tar()` library. This qualifies us for the +10 points as stated in the project description.
 
 ## Implementation (Server and Client)
 Since this project is complex, many of the building blocks need to be very robust for it to work as intended. Because of this, we made sure to create a detailed `.Manifest` structure for the client, as well as Protocol to communicate back and forth between the `CLIENT` and `SERVER` as reliably as possible. We go into more depth about how these are structured below.  
@@ -68,6 +71,8 @@ Example:
 
 
 ### Manifest Structure
+Since we felt that the original .Manifest file structure listed was limiting, we decided to design our own `.Manifest` file structure. _Note: this was approved by an instructor on Piazza, question @371_.
+
 Manifests are in the following format
 ```
 <project_name>

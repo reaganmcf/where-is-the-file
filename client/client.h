@@ -119,7 +119,7 @@ struct _error_desc {
     {E_CANNOT_WRITE_TO_MANIFEST, "Improper permissions to write .Manifest."},
     {E_PROJECT_DOESNT_EXIST_ON_CLIENT, "Project doesn't exist on the client."},
     {E_IMPROPER_ADD_PARAMS, "Improper Params for add command. Please follow the format of ./WTF add <project-name> <file-path>"},
-    {E_FILE_DOESNT_EXIST_TO_ADD, "Provided file path for add command not found. Please follow the following format example: ./WTF add project project/myfile.txt"},
+    {E_FILE_DOESNT_EXIST_TO_ADD, "Provided file path for add command not found. Please follow the following format example: ./WTF add project myfile.txt"},
     {E_FILE_ALREADY_ADDED_TO_MANIFEST, "File already exists in .Manifest for the client. Aborting add command"},
     {E_FILE_DOESNT_EXIST, "Provided file path does not exist"},
     {E_CANNOT_READ_FILE, "Provided file path does not have proper read permissions"},

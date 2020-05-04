@@ -1,4 +1,5 @@
 project
-3
-~ A:project/file2:1:a5c341bec5c89ed16758435069e3124b3685ad93:!
-~ A:project/file1:1:a5c341bec5c89ed16758435069e3124b3685ad93:!
+4
+~ project/file3:1:bb02f796617ce8e01c13480856250ca93e198c82:
+~ project/file2:1:a5c341bec5c89ed16758435069e3124b3685ad93:
+~ project/folder/file1:1:a5c341bec5c89ed16758435069e3124b3685ad93:

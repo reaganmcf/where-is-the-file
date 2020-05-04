@@ -373,15 +373,17 @@ void *wtf_process(void *pointer) {
  * Returns:
  *  "1:<data>" = Success
  *  "5" = E_CANNOT_READ_OR_WRITE_PROJECT_DIR
- *  "11" = E_FILE_DOESNT_EXIST
+ *  "7" = E_FILE_DOESNT_EXIST
  */
 char *wtf_server_get_file_contents(char *file_path) {
   //lock repo
 
   char *buffer = malloc(1000);
+  char *proj_name = malloc(150);
   char *ret_buffer = malloc(500000);
   char *file_buffer = malloc(450000);
   memset(buffer, 0, 1000);
+  memset(proj_name, 0, 150);
   memset(ret_buffer, 0, 500000);
   memset(file_buffer, 0, 450000);
 
@@ -389,18 +391,22 @@ char *wtf_server_get_file_contents(char *file_path) {
   int i = 0;
   for (i = 0; i < strlen(file_path); i++) {
     if (file_path[i] == '/') break;
-    sprintf(buffer, "%s%c", buffer, file_path[i]);
+    sprintf(proj_name, "%s%c", proj_name, file_path[i]);
   }
 
-  printf("project name is %s", buffer);
+  printf("project name is %s", proj_name);
+  lock_repository(proj_name);
 
   sprintf(buffer, "./Projects/%s", file_path);
 
   //Check if the file exists
   if (access(buffer, F_OK) == -1) {
     free(buffer);
+    free(file_buffer);
     wtf_perror(E_FILE_DOESNT_EXIST, NON_FATAL_ERROR);
-    sprintf(ret_buffer, "%d", E_FILE_DOESNT_EXIST);
+    unlock_repository(proj_name);
+    free(proj_name);
+    sprintf(ret_buffer, "%d", 7);
     return ret_buffer;
   }
 
@@ -408,6 +414,9 @@ char *wtf_server_get_file_contents(char *file_path) {
   int fd = open(buffer, O_RDONLY);
   if (fd == -1) {
     free(buffer);
+    unlock_repository(proj_name);
+    free(file_buffer);
+    free(proj_name);
     sprintf(ret_buffer, "%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
     return ret_buffer;
   }
@@ -428,6 +437,10 @@ char *wtf_server_get_file_contents(char *file_path) {
   memset(ret_buffer, 0, 500000);
   sprintf(ret_buffer, "1:%d:%s", strlen(file_buffer), file_buffer);
   printf("\tSuccessfully read %d bytes from %s\n", strlen(file_buffer), file_path);
+  free(buffer);
+  free(file_buffer);
+  unlock_repository(proj_name);
+  free(proj_name);
   return ret_buffer;
 }
 
@@ -716,14 +729,10 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   sprintf(buffer, "./Projects/%s/%s", project_name, target_commit_file_name);
   printf("\tChecking if commit doesn't exist\n");
 
-  //lock repo
-  lock_repository(project_name);
-
   printf("\tServer should have %s\n", target_commit_file_name);
   if (access(buffer, F_OK) == -1) {
     printf("\tCommit doesn't exist, can't push\n");
     sprintf(buff, "101");
-    unlock_repository(project_name);
     return buff;
   }
 
@@ -752,7 +761,6 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   } else {
     free(mid_buffer);
     free(buffer);
-    unlock_repository(project_name);
     wtf_perror(E_CANNOT_READ_OR_WRITE_PROJECT_DIR, NON_FATAL_ERROR);
     sprintf(buff, "10%d", E_CANNOT_READ_OR_WRITE_PROJECT_DIR);
   }
@@ -761,13 +769,11 @@ char *wtf_server_push(char *project_name, char *commit_contents, char *files_str
   print_manifest(manifest, 0);
   int version_number = manifest->version_number;
 
-  printf("here\n");
+  lock_repository(project_name);
 
   //delete current commit now that commit ops are made
   memset(buffer, 0, 1000);
-  printf("here1\n");
   sprintf(buffer, "rm ./Projects/%s/%s", project_name, target_commit_file_name);
-  printf("here2\n");
   printf("%s\n", buffer);
   system(buffer);
 
@@ -1416,6 +1422,7 @@ void print_manifest(Manifest *m, int verbose) {
   printf("%d Total Files:\n", m->file_count);
   int i;
   for (i = 0; i < m->file_count; i++) {
+    if (m->files[i] == NULL) continue;
     if (!verbose) {
       printf("\t%s Version: %d\n", m->files[i]->file_path, m->files[i]->version_number);
     } else {
@@ -1441,6 +1448,7 @@ void lock_repository(char *project_name) {
   while (curr != NULL) {
     if (strcmp(curr->project_name, project_name) == 0) {
       pthread_mutex_lock(&(curr->lock));
+      printf("LOCKED %s\n", project_name);
       return;
     }
     curr = curr->next;
@@ -1457,6 +1465,7 @@ void unlock_repository(char *project_name) {
   while (curr != NULL) {
     if (strcmp(curr->project_name, project_name) == 0) {
       pthread_mutex_unlock(&(curr->lock));
+      printf("UNLOCKED %s\n", project_name);
       return;
     }
     curr = curr->next;
@@ -1472,9 +1481,11 @@ void unlock_repository(char *project_name) {
 void free_manifest(Manifest *m) {
   int i;
   for (i = 0; i < m->file_count; i++) {
-    free(m->files[i]->file_path);
-    free(m->files[i]->hash);
-    if (m->files[i]->new_hash != NULL) free(m->files[i]->new_hash);
+    if (m->files[i]) {
+      free(m->files[i]->file_path);
+      free(m->files[i]->hash);
+      if (m->files[i]->new_hash != NULL) free(m->files[i]->new_hash);
+    }
     free(m->files[i]);
   }
   for (i = 0; i < m->new_file_count; i++) {
@@ -1529,8 +1540,9 @@ int write_manifest(Manifest *manifest) {
   //write all file entries
   int i;
   for (i = 0; i < manifest->file_count; i++) {
-    //if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
+    if (strlen(manifest->files[i]->file_path) == 0) continue;  //skip over this file, means it is being deleted from the .Manifest
     //Construct entry string
+    printf("writing %s\n", manifest->files[i]->file_path);
     memset(buffer, 0, 500);
     sprintf(buffer, "\n~ ");
     if (manifest->files[i]->op_code != OPCODE_NONE) {
