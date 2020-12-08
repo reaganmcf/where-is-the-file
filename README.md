@@ -1,6 +1,6 @@
-# AsstLast
+# Where is the file
 
-- Note: When we store old versions of the project, we compress them as `.gz` using the `tar()` library. This qualifies us for the +10 points as stated in the project description.
+A basic version control system written from scratch with sockets and file descriptors. There are countless optimizations that can be made, but the general structure of the code is sound.
 
 Note: **Client repository copies are stored in the CWD such as `./project/`, `./my_cool_project/`, etc. Server repositories are stored in the `./Projects/` folder.**
 
